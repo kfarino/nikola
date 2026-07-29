@@ -1,0 +1,9 @@
+{
+  "name": "Vrijeme za priču",
+  "short_name": "Priče",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "background_color": "#12141c",
+  "theme_color": "#12141c",
+  "orientation": "portrait"
+}

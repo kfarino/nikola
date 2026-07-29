@@ -1,0 +1,165 @@
+:root {
+  color-scheme: dark;
+  --bg: #12141c;
+  --bg-raised: #1c2030;
+  --text: #f2ede4;
+  --text-muted: #9a97ab;
+  --accent: #e8b874;
+  --accent-dim: #6b5636;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ---------- Home screen ---------- */
+
+.home {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.25rem calc(2rem + env(safe-area-inset-bottom));
+}
+
+.home h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 1.5rem;
+  text-align: center;
+}
+
+.story-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.story-card {
+  display: block;
+  background: var(--bg-raised);
+  border: 1px solid #2a2f42;
+  border-radius: 16px;
+  padding: 1.1rem 1.3rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.story-card:active {
+  background: #262b3d;
+}
+
+.story-card .hr {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.story-card .en {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* ---------- Player screen ---------- */
+
+.player {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) 1.5rem env(safe-area-inset-bottom);
+}
+
+.player-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 0;
+}
+
+.back-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.progress {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.line-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.line-hr {
+  font-size: 2.1rem;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.line-en {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem 0 2rem;
+}
+
+button {
+  font: inherit;
+  border: none;
+  border-radius: 999px;
+  padding: 0.9rem 1.3rem;
+  background: var(--bg-raised);
+  color: var(--text);
+  min-width: 3.4rem;
+}
+
+button:active {
+  background: #262b3d;
+}
+
+button.replay {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+  flex: 1;
+  max-width: 12rem;
+}
+
+.done {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.done a {
+  color: var(--accent);
+  font-size: 1.1rem;
+}
