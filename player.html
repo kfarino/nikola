@@ -95,7 +95,8 @@
     }
 
     audio.addEventListener("ended", () => {
-      setTimeout(next, 700);
+      const pauseMs = (audio.duration || 2) * 1.5 * 1000;
+      setTimeout(next, pauseMs);
     });
 
     document.getElementById("prevBtn").addEventListener("click", prev);
