@@ -7,12 +7,16 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#12141c" />
+  <meta name="theme-color" content="oklch(16% 0.012 55)" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="home">
-    <h1>Vrijeme za priču</h1>
+    <div class="eyebrow">✨ Vrijeme za priču</div>
+    <h1>📖 Priče</h1>
     <div class="story-list" id="storyList"></div>
   </div>
 
@@ -24,8 +28,12 @@
       a.className = "story-card";
       a.href = `player.html?story=${story.id}`;
       a.innerHTML = `
-        <div class="hr">${story.titleHr}</div>
-        <div class="en">${story.titleEn}</div>
+        <div class="icon">${story.emoji}</div>
+        <div class="text">
+          <div class="hr">${story.titleHr}</div>
+          <div class="en">${story.titleEn}</div>
+          <div class="meta">${story.lines.length} redaka</div>
+        </div>
       `;
       list.appendChild(a);
     });

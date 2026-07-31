@@ -3,7 +3,7 @@
   "short_name": "Priče",
   "start_url": "index.html",
   "display": "fullscreen",
-  "background_color": "#12141c",
-  "theme_color": "#12141c",
-  "orientation": "portrait"
+  "background_color": "#1c1917",
+  "theme_color": "#1c1917",
+  "orientation": "any"
 }

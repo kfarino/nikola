@@ -1,6 +1,7 @@
 const STORIES = [
   {
     id: "turtle",
+    emoji: "🐢",
     titleHr: "Kornjača i cvijet",
     titleEn: "The Turtle and the Flower",
     lines: [
@@ -15,6 +16,7 @@ const STORIES = [
   },
   {
     id: "rabbit",
+    emoji: "🐇",
     titleHr: "Hrabri zec",
     titleEn: "The Brave Rabbit",
     lines: [
@@ -28,6 +30,7 @@ const STORIES = [
   },
   {
     id: "squirrel",
+    emoji: "🐿️",
     titleHr: "Vjeverica i orah",
     titleEn: "The Squirrel and the Walnut",
     lines: [
@@ -41,6 +44,7 @@ const STORIES = [
   },
   {
     id: "penguin",
+    emoji: "🐧",
     titleHr: "Mali pingvin i kupanje",
     titleEn: "Little Penguin's Bath",
     lines: [
@@ -56,6 +60,7 @@ const STORIES = [
   },
   {
     id: "star",
+    emoji: "⭐",
     titleHr: "Mala zvijezda",
     titleEn: "The Little Star",
     lines: [
@@ -69,13 +74,58 @@ const STORIES = [
   },
 ];
 
+// Words that must lead into the next clause, never trail the previous one
+// (conjunctions and short prepositions) - used by splitSentence() below.
+const LEADING_WORDS = new Set([
+  "i", "ali", "pa", "te", "ili", "nego", "jer",
+  "u", "na", "do", "od", "za", "sa", "s", "po", "iz", "kroz", "uz", "niz",
+]);
+
+// Auxiliary clitics that stay attached to the participle before them
+// (e.g. "živjela je", not "živjela" / "je ...") - used by splitSentence() below.
+const TRAILING_CLITICS = new Set(["je", "sam", "si", "smo", "ste", "su"]);
+
+function stripWord(word) {
+  return word.replace(/[.,!?"]+$/, "").toLowerCase();
+}
+
+// Splits a sentence into two halves for "Polako" (slow) mode, which speaks each
+// half separately with a pause in between. Prefers splitting at a comma near the
+// middle (a natural clause break); otherwise splits at the nearest word boundary,
+// nudged to avoid stranding a leading conjunction/preposition or an auxiliary
+// clitic on the wrong side of the split.
+function splitSentence(text) {
+  const commaIdx = text.indexOf(",");
+  if (commaIdx !== -1 && commaIdx > text.length * 0.25 && commaIdx < text.length * 0.75) {
+    return [text.slice(0, commaIdx + 1).trim(), text.slice(commaIdx + 1).trim()];
+  }
+
+  const words = text.split(" ");
+  let mid = Math.ceil(words.length / 2);
+
+  if (mid > 1 && LEADING_WORDS.has(stripWord(words[mid - 1]))) {
+    mid -= 1;
+  }
+  if (mid < words.length - 1 && TRAILING_CLITICS.has(stripWord(words[mid]))) {
+    mid += 1;
+  }
+
+  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+}
+
 // Audio file path convention: audio/<storyId>/lineNN.mp3 (1-indexed, zero-padded to 2 digits).
+// Slow-mode halves are separate files: audio/<storyId>/lineNN-slow-a.mp3 / -slow-b.mp3.
 // Generated separately by scripts/generate-audio.js — not hand-written here so story text
 // can be edited freely without needing to renumber file references.
 STORIES.forEach((story) => {
   story.lines.forEach((line, i) => {
     const n = String(i + 1).padStart(2, "0");
     line.audio = `audio/${story.id}/line${n}.mp3`;
+    line.audioSlowA = `audio/${story.id}/line${n}-slow-a.mp3`;
+    line.audioSlowB = `audio/${story.id}/line${n}-slow-b.mp3`;
+    const [half1, half2] = splitSentence(line.hr);
+    line.hrHalf1 = half1;
+    line.hrHalf2 = half2;
   });
 });
 
