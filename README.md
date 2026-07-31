@@ -5,8 +5,7 @@ A tiny app for reading simple, repetitive Croatian stories to a baby. Plain HTML
 ## How it works
 
 - `stories.js` — all story text (Croatian + English), one entry per line.
-- `index.html` — home screen, lists the stories.
-- `player.html` — shows one line at a time (Croatian large, English below), plays that line's audio, and auto-advances to the next line when the audio finishes. Tap "Ponovi" to replay the current line.
+- `index.html` — the whole app: a home screen (lists the stories) and a player screen (shows one line at a time, Croatian large, English below, plays that line's audio, and auto-advances when it finishes; tap "Ponovi" to replay). Both live in one page — selecting a story swaps the view with JS (`history.pushState`, no real navigation) instead of loading a separate page, so the tap that picks a story is still an active user gesture when `audio.play()` is called. That's required for the first line to autoplay on iOS Safari; a real page load would lose the gesture and autoplay would get blocked.
 - `audio/<storyId>/lineNN.mp3` — pre-generated narration, one file per line, committed to the repo.
 
 ## Adding or editing a story
@@ -48,4 +47,4 @@ Open the printed URL in a browser, or on your phone (same WiFi) via your compute
 ## Notes
 
 - This repo is intentionally separate from any other personal/family repo — it should only ever contain story text, audio, and app code, since it's meant to be public.
-- The `<audio autoplay>` element plays the first line as soon as the player loads, relying on WebKit's exception that allows autoplay when the page was reached via a real link tap (tapping a story card counts). If a future iOS update tightens this and the first line goes silent, tapping "Ponovi" once still works as a manual fallback; line-to-line playback always auto-advances regardless.
+- Selecting a story calls `audio.play()` synchronously inside the tap's click handler (see above) so the first line autoplays on iOS Safari, which otherwise blocks autoplay after any page load that isn't tied to a live user gesture. If a story is opened via a direct/bookmarked `?story=` URL (no tap involved), the first line won't autoplay; tapping "Ponovi" once still works as a manual fallback. Line-to-line playback always auto-advances regardless.

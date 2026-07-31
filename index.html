@@ -14,28 +14,235 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="home">
+  <div class="home" id="homeScreen">
     <div class="eyebrow">✨ Vrijeme za priču</div>
     <h1>📖 Priče</h1>
     <div class="story-list" id="storyList"></div>
   </div>
 
+  <div class="player" id="playerScreen" hidden>
+    <div class="player-top" id="playerTop">
+      <a class="back-link" href="index.html" id="backLink">&lsaquo; Natrag</a>
+      <div class="speed-toggle-group">
+        <div id="normalOption" class="speed-option active">Normalno</div>
+        <div id="slowOption" class="speed-option">Polako</div>
+      </div>
+    </div>
+
+    <div class="line-area" id="lineArea">
+      <div class="line-hr" id="lineHr"></div>
+      <div class="line-en" id="lineEn"></div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button id="prevBtn" class="icon-btn" aria-label="Prethodno">&lsaquo;</button>
+      <button id="replayBtn" class="replay">&#128257; Ponovi</button>
+      <button id="nextBtn" class="icon-btn" aria-label="Sljedeće">&rsaquo;</button>
+    </div>
+
+    <div class="done" id="doneScreen" hidden>
+      <div class="line-hr">Kraj priče</div>
+      <div class="line-en">The end</div>
+    </div>
+  </div>
+
+  <audio id="audio" preload="auto" playsinline></audio>
+
   <script src="stories.js"></script>
   <script>
-    const list = document.getElementById("storyList");
-    STORIES.forEach((story) => {
-      const a = document.createElement("a");
-      a.className = "story-card";
-      a.href = `player.html?story=${story.id}`;
-      a.innerHTML = `
-        <div class="icon">${story.emoji}</div>
-        <div class="text">
-          <div class="hr">${story.titleHr}</div>
-          <div class="en">${story.titleEn}</div>
-          <div class="meta">${story.lines.length} redaka</div>
-        </div>
-      `;
-      list.appendChild(a);
+    const homeScreen = document.getElementById("homeScreen");
+    const playerScreen = document.getElementById("playerScreen");
+    const storyList = document.getElementById("storyList");
+    const playerTop = document.getElementById("playerTop");
+    const lineArea = document.getElementById("lineArea");
+    const controls = document.getElementById("controls");
+    const doneScreen = document.getElementById("doneScreen");
+    const backLink = document.getElementById("backLink");
+    const audio = document.getElementById("audio");
+    const lineHr = document.getElementById("lineHr");
+    const lineEn = document.getElementById("lineEn");
+    const replayBtn = document.getElementById("replayBtn");
+    const normalOption = document.getElementById("normalOption");
+    const slowOption = document.getElementById("slowOption");
+
+    let story = null;
+    let idx = 0;
+    let slowMode = false;
+    let playingHalf = "a"; // which half is loaded when slowMode is on: "a" or "b"
+    let pendingTimer = null; // the scheduled auto-advance/half-flip/return-home timeout, if any
+    const SLOW_PAUSE_MULT = 1; // pause after each half, in slow mode
+    const NORMAL_PAUSE_MULT = 1.5; // pause after the full line, in normal mode
+
+    function renderHome() {
+      storyList.innerHTML = "";
+      STORIES.forEach((s) => {
+        const a = document.createElement("a");
+        a.className = "story-card";
+        a.href = `index.html?story=${s.id}`;
+        a.innerHTML = `
+          <div class="icon">${s.emoji}</div>
+          <div class="text">
+            <div class="hr">${s.titleHr}</div>
+            <div class="en">${s.titleEn}</div>
+            <div class="meta">${s.lines.length} redaka</div>
+          </div>
+        `;
+        // Handled with a same-page view switch (not a real navigation) so this
+        // click's user gesture is still active when we call audio.play() below -
+        // a fresh page load loses that gesture and iOS Safari blocks autoplay.
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          history.pushState({ story: s.id }, "", `index.html?story=${s.id}`);
+          selectStory(s.id);
+        });
+        storyList.appendChild(a);
+      });
+    }
+
+    function showHome() {
+      clearTimeout(pendingTimer);
+      audio.pause();
+      story = null;
+      playerScreen.hidden = true;
+      homeScreen.hidden = false;
+    }
+
+    function selectStory(id) {
+      story = STORIES.find((s) => s.id === id) || STORIES[0];
+      idx = 0;
+      slowMode = false;
+      playingHalf = "a";
+      normalOption.classList.add("active");
+      slowOption.classList.remove("active");
+      doneScreen.hidden = true;
+      playerTop.hidden = false;
+      lineArea.hidden = false;
+      controls.hidden = false;
+      homeScreen.hidden = true;
+      playerScreen.hidden = false;
+      render();
+    }
+
+    function attemptPlay() {
+      clearTimeout(pendingTimer);
+      audio.currentTime = 0;
+      const p = audio.play();
+      if (p && p.then) {
+        p.then(() => {
+          replayBtn.textContent = "🔁 Ponovi";
+        }).catch(() => {
+          replayBtn.textContent = "▶ Reproduciraj";
+        });
+      } else {
+        replayBtn.textContent = "🔁 Ponovi";
+      }
+    }
+
+    function playCurrent() {
+      const line = story.lines[idx];
+      audio.src = slowMode ? (playingHalf === "a" ? line.audioSlowA : line.audioSlowB) : line.audio;
+      replayBtn.textContent = "🔁 Ponovi";
+      attemptPlay();
+    }
+
+    function render() {
+      const line = story.lines[idx];
+      lineHr.textContent = line.hr;
+      lineEn.textContent = line.en;
+      playingHalf = "a";
+      playCurrent();
+    }
+
+    function next() {
+      if (idx < story.lines.length - 1) {
+        idx++;
+        render();
+      } else {
+        showDone();
+      }
+    }
+
+    function prev() {
+      if (idx > 0) {
+        idx--;
+        render();
+      }
+    }
+
+    function showDone() {
+      playerTop.hidden = true;
+      lineArea.hidden = true;
+      controls.hidden = true;
+      doneScreen.hidden = false;
+      pendingTimer = setTimeout(() => {
+        history.pushState(null, "", "index.html");
+        showHome();
+      }, 2500);
+    }
+
+    audio.addEventListener("ended", () => {
+      const spokenSeconds = audio.duration || 2;
+
+      if (slowMode && playingHalf === "a") {
+        const pauseMs = spokenSeconds * SLOW_PAUSE_MULT * 1000;
+        pendingTimer = setTimeout(() => {
+          playingHalf = "b";
+          playCurrent();
+        }, pauseMs);
+        return;
+      }
+
+      const pauseMultiplier = slowMode ? SLOW_PAUSE_MULT : NORMAL_PAUSE_MULT;
+      const pauseMs = spokenSeconds * pauseMultiplier * 1000;
+      pendingTimer = setTimeout(next, pauseMs);
+    });
+
+    document.getElementById("prevBtn").addEventListener("click", prev);
+    document.getElementById("nextBtn").addEventListener("click", next);
+    replayBtn.addEventListener("click", attemptPlay);
+
+    function setSlowMode(slow) {
+      if (slow === slowMode) return;
+      slowMode = slow;
+      normalOption.classList.toggle("active", !slowMode);
+      slowOption.classList.toggle("active", slowMode);
+      render();
+    }
+    normalOption.addEventListener("click", () => setSlowMode(false));
+    slowOption.addEventListener("click", () => setSlowMode(true));
+
+    backLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      history.back();
+    });
+
+    function syncFromUrl() {
+      const params = new URLSearchParams(location.search);
+      const id = params.get("story");
+      if (id && STORIES.some((s) => s.id === id)) {
+        selectStory(id);
+      } else {
+        showHome();
+      }
+    }
+    window.addEventListener("popstate", syncFromUrl);
+
+    renderHome();
+    syncFromUrl();
+
+    // Keep the screen awake for the duration of the story.
+    let wakeLock = null;
+    async function requestWakeLock() {
+      if (!("wakeLock" in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch (e) {
+        // ignore - not critical to playback
+      }
+    }
+    requestWakeLock();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") requestWakeLock();
     });
   </script>
 </body>
