@@ -24,7 +24,6 @@
     </div>
 
     <div class="line-area" id="lineArea">
-      <div class="story-emoji" id="storyEmoji"></div>
       <div class="line-hr" id="lineHr"></div>
       <div class="line-en" id="lineEn"></div>
     </div>
@@ -50,15 +49,12 @@
     const SLOW_PAUSE_MULT = 1; // pause after each half, in slow mode
     const NORMAL_PAUSE_MULT = 1.5; // pause after the full line, in normal mode
     const audio = document.getElementById("audio");
-    const storyEmoji = document.getElementById("storyEmoji");
     const lineHr = document.getElementById("lineHr");
     const lineEn = document.getElementById("lineEn");
     const replayBtn = document.getElementById("replayBtn");
     const normalOption = document.getElementById("normalOption");
     const slowOption = document.getElementById("slowOption");
     const playerEl = document.querySelector(".player");
-
-    storyEmoji.textContent = story.emoji;
 
     function attemptPlay() {
       clearTimeout(pendingTimer);
