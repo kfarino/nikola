@@ -48,4 +48,4 @@ Open the printed URL in a browser, or on your phone (same WiFi) via your compute
 ## Notes
 
 - This repo is intentionally separate from any other personal/family repo — it should only ever contain story text, audio, and app code, since it's meant to be public.
-- iOS Safari blocks audio autoplay until a real tap has happened on the page; the first line requires tapping "Ponovi" once, after which line-to-line playback auto-advances.
+- The `<audio autoplay>` element plays the first line as soon as the player loads, relying on WebKit's exception that allows autoplay when the page was reached via a real link tap (tapping a story card counts). If a future iOS update tightens this and the first line goes silent, tapping "Ponovi" once still works as a manual fallback; line-to-line playback always auto-advances regardless.
