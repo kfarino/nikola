@@ -14,6 +14,8 @@ Extend the existing single-page app (`index.html`) rather than adding a separate
 
 ### 1. `songs.js` - data file (parallel to `stories.js`)
 
+Most of these songs hold a steady chord loop through an entire section rather than a different chord per lyric line, and the performance view is lyrics-first (chords are just the corner reference) - so chords and lyric lines are two separate arrays per section, not paired line-by-line:
+
 ```js
 const SONGS = [
   {
@@ -23,25 +25,18 @@ const SONGS = [
     key: "A",
     capo: null,
     sections: [
-      { label: "Intro", lines: [{ chord: "A", text: "" }] },
-      { label: "Chorus", lines: [
-        { chord: "A", text: "" }, { chord: "D", text: "" }, { chord: "A", text: "" },
-        { chord: "A", text: "" }, { chord: "D", text: "" },
-      ]},
-      { label: "Verse 1", lines: [
-        { chord: "A", text: "" }, { chord: "E", text: "" }, { chord: "A", text: "" },
-        { chord: "D", text: "" }, { chord: "A", text: "" }, { chord: "E", text: "" },
-        { chord: "D", text: "" }, { chord: "A", text: "" },
-      ]},
+      { label: "Intro", chords: ["A"], lines: [""] },
+      { label: "Chorus", chords: ["A", "D", "A"], lines: ["", "", "", ""] },
+      { label: "Verse 1", chords: ["A", "E", "A", "D"], lines: ["", "", "", "", "", "", ""] },
       // ...Chorus, Verse 2, Outro
     ],
   },
-  // ...8 more songs, same shape, chords transcribed from songs/chord-charts/*.pdf
+  // ...8 more songs, same shape, chords/section structure transcribed from songs/chord-charts/*.pdf
 ];
 if (typeof module !== "undefined") module.exports = SONGS;
 ```
 
-One entry per lyric line, `chord` = the line's primary/starting chord (matches how the source charts place chords), `text` blank. This is intentionally the same "list of small objects" shape as `stories.js`'s `lines` array, so the rest of the app already has a familiar pattern to work with.
+`chords` is that section's repeating progression (drives the corner widget). `lines` is one blank string per lyric line in that section - just a count placeholder for now, filled in by the user later. This is deliberately simpler than tying a chord to every line, matching how these songs are actually played (a loop under the whole section, not a chord change on every line).
 
 ### 2. Home screen: Priče / Pjesme tab switcher
 
