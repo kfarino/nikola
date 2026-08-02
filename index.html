@@ -37,6 +37,7 @@
     <div class="controls" id="controls">
       <button id="prevBtn" class="icon-btn" aria-label="Prethodno">&lsaquo;</button>
       <button id="replayBtn" class="replay">&#128257; Ponovi</button>
+      <button id="pauseBtn" class="icon-btn" aria-label="Pauza">&#9208;</button>
       <button id="nextBtn" class="icon-btn" aria-label="Sljedeće">&rsaquo;</button>
     </div>
 
@@ -62,6 +63,7 @@
     const lineHr = document.getElementById("lineHr");
     const lineEn = document.getElementById("lineEn");
     const replayBtn = document.getElementById("replayBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
     const normalOption = document.getElementById("normalOption");
     const slowOption = document.getElementById("slowOption");
 
@@ -69,7 +71,11 @@
     let idx = 0;
     let slowMode = false;
     let playingHalf = "a"; // which half is loaded when slowMode is on: "a" or "b"
+    let repeat = 1; // which play-through (1 or 2) of the current half, slow mode only
     let pendingTimer = null; // the scheduled auto-advance/half-flip/return-home timeout, if any
+    let pendingAction = null; // what pendingTimer will do when it fires - resumed immediately on unpause
+    let isPaused = false;
+    let pausedState = null; // "playing" | "waiting" - what we were doing when paused
     const SLOW_PAUSE_MULT = 1; // pause after each half, in slow mode
     const NORMAL_PAUSE_MULT = 1.5; // pause after the full line, in normal mode
 
@@ -112,6 +118,7 @@
       idx = 0;
       slowMode = false;
       playingHalf = "a";
+      repeat = 1;
       normalOption.classList.add("active");
       slowOption.classList.remove("active");
       doneScreen.hidden = true;
@@ -120,11 +127,15 @@
       controls.hidden = false;
       homeScreen.hidden = true;
       playerScreen.hidden = false;
-      render();
+      renderCurrent();
     }
 
     function attemptPlay() {
       clearTimeout(pendingTimer);
+      pendingAction = null;
+      isPaused = false;
+      pauseBtn.textContent = "⏸";
+      pausedState = "playing";
       audio.currentTime = 0;
       const p = audio.play();
       if (p && p.then) {
@@ -145,28 +156,53 @@
       attemptPlay();
     }
 
-    function render() {
+    function renderCurrent() {
       const line = story.lines[idx];
       lineHr.textContent = line.hr;
       lineEn.textContent = line.en;
-      playingHalf = "a";
       playCurrent();
     }
 
-    function next() {
-      if (idx < story.lines.length - 1) {
-        idx++;
-        render();
+    // Shared by the manual prev/next buttons and the auto-advance timer, so both
+    // agree on what "forward"/"backward" means. In slow mode this steps through
+    // segments (half A, half B) rather than whole lines - e.g. from half B,
+    // backward lands on half A of the *same* line, not the previous line.
+    function advance(direction) {
+      if (direction === "forward") {
+        if (slowMode) {
+          if (playingHalf === "a") {
+            playingHalf = "b";
+          } else if (idx < story.lines.length - 1) {
+            idx++;
+            playingHalf = "a";
+          } else {
+            showDone();
+            return;
+          }
+        } else if (idx < story.lines.length - 1) {
+          idx++;
+        } else {
+          showDone();
+          return;
+        }
       } else {
-        showDone();
+        if (slowMode) {
+          if (playingHalf === "b") {
+            playingHalf = "a";
+          } else if (idx > 0) {
+            idx--;
+            playingHalf = "b";
+          } else {
+            return;
+          }
+        } else if (idx > 0) {
+          idx--;
+        } else {
+          return;
+        }
       }
-    }
-
-    function prev() {
-      if (idx > 0) {
-        idx--;
-        render();
-      }
+      repeat = 1;
+      renderCurrent();
     }
 
     function showDone() {
@@ -174,39 +210,73 @@
       lineArea.hidden = true;
       controls.hidden = true;
       doneScreen.hidden = false;
-      pendingTimer = setTimeout(() => {
+      scheduleAdvance(2500, () => {
         history.pushState(null, "", "index.html");
         showHome();
-      }, 2500);
+      });
+    }
+
+    // Schedules the next step and remembers it as `pendingAction`, so that if the
+    // user pauses during this gap, unpausing can run the exact same action
+    // immediately instead of guessing what it was.
+    function scheduleAdvance(pauseMs, action) {
+      pendingAction = action;
+      pausedState = "waiting";
+      pendingTimer = setTimeout(() => {
+        pendingAction = null;
+        action();
+      }, pauseMs);
     }
 
     audio.addEventListener("ended", () => {
       const spokenSeconds = audio.duration || 2;
 
-      if (slowMode && playingHalf === "a") {
-        const pauseMs = spokenSeconds * SLOW_PAUSE_MULT * 1000;
-        pendingTimer = setTimeout(() => {
-          playingHalf = "b";
+      if (slowMode && repeat === 1) {
+        scheduleAdvance(spokenSeconds * SLOW_PAUSE_MULT * 1000, () => {
+          repeat = 2;
           playCurrent();
-        }, pauseMs);
+        });
         return;
       }
 
       const pauseMultiplier = slowMode ? SLOW_PAUSE_MULT : NORMAL_PAUSE_MULT;
-      const pauseMs = spokenSeconds * pauseMultiplier * 1000;
-      pendingTimer = setTimeout(next, pauseMs);
+      scheduleAdvance(spokenSeconds * pauseMultiplier * 1000, () => advance("forward"));
     });
 
-    document.getElementById("prevBtn").addEventListener("click", prev);
-    document.getElementById("nextBtn").addEventListener("click", next);
+    document.getElementById("prevBtn").addEventListener("click", () => advance("backward"));
+    document.getElementById("nextBtn").addEventListener("click", () => advance("forward"));
     replayBtn.addEventListener("click", attemptPlay);
+
+    pauseBtn.addEventListener("click", () => {
+      if (!isPaused) {
+        isPaused = true;
+        pauseBtn.textContent = "▶";
+        if (pausedState === "playing") {
+          audio.pause();
+        } else if (pausedState === "waiting") {
+          clearTimeout(pendingTimer);
+        }
+        return;
+      }
+      isPaused = false;
+      pauseBtn.textContent = "⏸";
+      if (pausedState === "playing") {
+        audio.play();
+      } else if (pausedState === "waiting" && pendingAction) {
+        const action = pendingAction;
+        pendingAction = null;
+        action();
+      }
+    });
 
     function setSlowMode(slow) {
       if (slow === slowMode) return;
       slowMode = slow;
+      playingHalf = "a";
+      repeat = 1;
       normalOption.classList.toggle("active", !slowMode);
       slowOption.classList.toggle("active", slowMode);
-      render();
+      renderCurrent();
     }
     normalOption.addEventListener("click", () => setSlowMode(false));
     slowOption.addEventListener("click", () => setSlowMode(true));
