@@ -65,6 +65,23 @@
     </div>
   </div>
 
+  <div class="player" id="songPlayScreen" hidden>
+    <div class="chord-widget" id="chordWidget"></div>
+    <div class="player-top">
+      <a class="back-link" href="index.html" id="songPlayBackLink">&lsaquo; Natrag</a>
+    </div>
+    <div class="line-area" id="songLineArea">
+      <div class="line-hr" id="songLineText"></div>
+    </div>
+    <div class="controls" id="songControls">
+      <button id="songPrevBtn" class="icon-btn" aria-label="Prethodni dio">&lsaquo;</button>
+      <button id="speedDownBtn" class="icon-btn" aria-label="Sporije">&minus;</button>
+      <button id="songPauseBtn" class="icon-btn" aria-label="Pauza">&#9208;</button>
+      <button id="speedUpBtn" class="icon-btn" aria-label="Brže">&plus;</button>
+      <button id="songNextBtn" class="icon-btn" aria-label="Sljedeći dio">&rsaquo;</button>
+    </div>
+  </div>
+
   <audio id="audio" preload="auto" playsinline></audio>
 
   <script src="stories.js"></script>
@@ -96,6 +113,11 @@
     const songPreviewSections = document.getElementById("songPreviewSections");
     const songPreviewBackLink = document.getElementById("songPreviewBackLink");
     const songPlayBtn = document.getElementById("songPlayBtn");
+    const songPlayScreen = document.getElementById("songPlayScreen");
+    const chordWidget = document.getElementById("chordWidget");
+    const songLineText = document.getElementById("songLineText");
+    const songPauseBtn = document.getElementById("songPauseBtn");
+    const songPlayBackLink = document.getElementById("songPlayBackLink");
 
     let story = null;
     let song = null;
@@ -109,6 +131,14 @@
     let pausedState = null; // "playing" | "waiting" - what we were doing when paused
     const SLOW_PAUSE_MULT = 1; // pause after each half, in slow mode
     const NORMAL_PAUSE_MULT = 1.5; // pause after the full line, in normal mode
+
+    let sectionIdx = 0;
+    let lineIdx = 0;
+    let songTimer = null;
+    let songPaused = false;
+    let scrollIntervalMs = 4000;
+    const MIN_INTERVAL_MS = 1500;
+    const MAX_INTERVAL_MS = 10000;
 
     function renderHome() {
       storyList.innerHTML = "";
@@ -182,6 +212,92 @@
       history.back();
     });
 
+    function currentSongLines() {
+      const section = song.sections[sectionIdx];
+      return section.lines.length > 0 ? section.lines : [""];
+    }
+
+    function renderSongLine() {
+      const section = song.sections[sectionIdx];
+      chordWidget.textContent = `${section.label}: ${section.chords.join(" · ")}`;
+      songLineText.textContent = currentSongLines()[lineIdx];
+    }
+
+    function scheduleSongAdvance() {
+      clearTimeout(songTimer);
+      songTimer = setTimeout(() => advanceSongLine("forward"), scrollIntervalMs);
+    }
+
+    function advanceSongLine(direction) {
+      const lines = currentSongLines();
+      if (direction === "forward") {
+        if (lineIdx < lines.length - 1) {
+          lineIdx++;
+        } else if (sectionIdx < song.sections.length - 1) {
+          sectionIdx++;
+          lineIdx = 0;
+        } else {
+          sectionIdx = 0;
+          lineIdx = 0;
+        }
+      } else {
+        if (lineIdx > 0) {
+          lineIdx--;
+        } else if (sectionIdx > 0) {
+          sectionIdx--;
+          lineIdx = currentSongLines().length - 1;
+        }
+      }
+      renderSongLine();
+      if (!songPaused) scheduleSongAdvance();
+    }
+
+    function enterPerformance() {
+      sectionIdx = 0;
+      lineIdx = 0;
+      songPaused = false;
+      songPauseBtn.textContent = "⏸";
+      homeScreen.hidden = true;
+      songPreviewScreen.hidden = true;
+      songPlayScreen.hidden = false;
+      renderSongLine();
+      scheduleSongAdvance();
+    }
+
+    songPlayBtn.addEventListener("click", enterPerformance);
+
+    document.getElementById("songPrevBtn").addEventListener("click", () => {
+      clearTimeout(songTimer);
+      advanceSongLine("backward");
+    });
+    document.getElementById("songNextBtn").addEventListener("click", () => {
+      clearTimeout(songTimer);
+      advanceSongLine("forward");
+    });
+
+    songPauseBtn.addEventListener("click", () => {
+      songPaused = !songPaused;
+      songPauseBtn.textContent = songPaused ? "▶" : "⏸";
+      if (songPaused) {
+        clearTimeout(songTimer);
+      } else {
+        scheduleSongAdvance();
+      }
+    });
+
+    document.getElementById("speedUpBtn").addEventListener("click", () => {
+      scrollIntervalMs = Math.max(MIN_INTERVAL_MS, scrollIntervalMs - 500);
+    });
+    document.getElementById("speedDownBtn").addEventListener("click", () => {
+      scrollIntervalMs = Math.min(MAX_INTERVAL_MS, scrollIntervalMs + 500);
+    });
+
+    songPlayBackLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearTimeout(songTimer);
+      history.back();
+    });
+
     function showSection(section) {
       const showingSongs = section === "songs";
       storiesTabOption.classList.toggle("active", !showingSongs);
@@ -196,11 +312,13 @@
 
     function showHome() {
       clearTimeout(pendingTimer);
+      clearTimeout(songTimer);
       audio.pause();
       story = null;
       song = null;
       playerScreen.hidden = true;
       songPreviewScreen.hidden = true;
+      songPlayScreen.hidden = true;
       homeScreen.hidden = false;
     }
 
