@@ -1,0 +1,526 @@
+# Books Section Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add a third top-level section ("Knjige" / Books) to the app, reusing Stories' exact reader mechanics (audio, Polako slow mode, pause, auto-advance) instead of building a parallel system, since Books is read the same way Stories is.
+
+**Architecture:** `books.js` mirrors `stories.js`'s shape and per-line processing pipeline exactly (`{ id, titleHr, titleEn, emoji, lines: [{hr, en}] }`, same `splitSentence()`/audio-path-filling). The existing `story` variable and player screen in `index.html` become dual-purpose (Stories or Books), disambiguated by a new `contentKind` variable, rather than adding a parallel reader screen.
+
+**Tech Stack:** Vanilla HTML/CSS/JS, no build step, no dependencies. No test framework; verification is a parse-check plus manual hand-trace, per established project pattern.
+
+## Global Constraints
+
+- No build step, no framework, no npm dependencies - plain `<script>` tags only.
+- **No real book content.** `books.js` ships with exactly one clearly-fictional example entry (id `example-book`). Never transcribe, translate, or paraphrase any actual copyrighted book's text - that is the user's own task, to be done by typing text in themselves later.
+- No page images/illustrations anywhere - text only (`hr`/`en` per line), consistent with this being a reading companion used alongside the physical book, not a replacement for it.
+- Reuse the existing Stories player screen/mechanics for Books (same `playerScreen`, `doneScreen`, `advance()`, `attemptPlay()`, pause, Polako) rather than building a second reader screen - this is the plan's central design decision, not optional.
+- All work happens in `index.html`'s existing inline `<script>` block and `style.css` - no new JS file beyond `books.js` (a pure data file, like `stories.js`/`songs.js`).
+
+---
+
+### Task 1: `books.js` data file
+
+**Files:**
+- Create: `books.js`
+
+**Interfaces:**
+- Produces: global `BOOKS` array, each entry `{ id, emoji, titleHr, titleEn, lines: [{hr, en}] }`. After the per-line processing loop (same as `stories.js`), each line also gets `audio`, `audioSlowA`, `audioSlowB`, `hrHalf1`, `hrHalf2` - identical shape to a `STORIES` line, so the existing Stories player can consume a `BOOKS` entry with zero changes.
+
+- [ ] **Step 1: Write `books.js`**
+
+```js
+const BOOKS = [
+  {
+    id: "example-book",
+    emoji: "📕",
+    titleHr: "Primjer knjige",
+    titleEn: "Example Book",
+    lines: [
+      { hr: "Ovo je primjer rečenice.", en: "This is an example sentence." },
+      { hr: "Svaki redak može biti cijela stranica, jedna rečenica, ili samo dio rečenice - ti biraš.", en: "Each line can be a whole page, one sentence, or just part of a sentence - you choose." },
+      { hr: "Ovo je treći i posljednji redak ovog primjera.", en: "This is the third and final line of this example." },
+    ],
+  },
+];
+
+// Words that must lead into the next clause, never trail the previous one
+// (conjunctions and short prepositions) - used by splitSentence() below.
+// Duplicated from stories.js rather than shared, matching this project's
+// pattern of self-contained data files with no cross-file dependencies.
+const BOOK_LEADING_WORDS = new Set([
+  "i", "ali", "pa", "te", "ili", "nego", "jer",
+  "u", "na", "do", "od", "za", "sa", "s", "po", "iz", "kroz", "uz", "niz",
+]);
+
+// Auxiliary clitics that stay attached to the participle before them
+// (e.g. "živjela je", not "živjela" / "je ...") - used by splitSentence() below.
+const BOOK_TRAILING_CLITICS = new Set(["je", "sam", "si", "smo", "ste", "su"]);
+
+function stripBookWord(word) {
+  return word.replace(/[.,!?"]+$/, "").toLowerCase();
+}
+
+// Splits a sentence into two halves for "Polako" (slow) mode - see stories.js
+// for the full rationale. Identical logic, applied to BOOKS instead of STORIES.
+function splitBookSentence(text) {
+  const commaIdx = text.indexOf(",");
+  if (commaIdx !== -1 && commaIdx > text.length * 0.25 && commaIdx < text.length * 0.75) {
+    return [text.slice(0, commaIdx + 1).trim(), text.slice(commaIdx + 1).trim()];
+  }
+
+  const words = text.split(" ");
+  let mid = Math.ceil(words.length / 2);
+
+  if (mid > 1 && BOOK_LEADING_WORDS.has(stripBookWord(words[mid - 1]))) {
+    mid -= 1;
+  }
+  if (mid < words.length - 1 && BOOK_TRAILING_CLITICS.has(stripBookWord(words[mid]))) {
+    mid += 1;
+  }
+
+  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+}
+
+// Audio file path convention: audio/<bookId>/lineNN.mp3 (1-indexed, zero-padded to 2 digits) -
+// the same audio/ root Stories already uses; book ids just need to stay unique across the app.
+// Slow-mode halves are separate files: audio/<bookId>/lineNN-slow-a.mp3 / -slow-b.mp3.
+// Generated by scripts/generate-audio.js, same as stories.
+BOOKS.forEach((book) => {
+  book.lines.forEach((line, i) => {
+    const n = String(i + 1).padStart(2, "0");
+    line.audio = `audio/${book.id}/line${n}.mp3`;
+    line.audioSlowA = `audio/${book.id}/line${n}-slow-a.mp3`;
+    line.audioSlowB = `audio/${book.id}/line${n}-slow-b.mp3`;
+    const [half1, half2] = splitBookSentence(line.hr);
+    line.hrHalf1 = half1;
+    line.hrHalf2 = half2;
+  });
+});
+
+// Node (generate-audio.js) needs this; browsers ignore it since `module` is undefined.
+if (typeof module !== "undefined") module.exports = BOOKS;
+```
+
+- [ ] **Step 2: Verify it parses**
+
+Run: `node -e "const fs = require('fs'); new Function(fs.readFileSync('books.js', 'utf8')); console.log('parses OK');"`
+Expected: `parses OK`
+
+- [ ] **Step 3: Verify the data loads correctly via Node**
+
+Run: `node -e "const BOOKS = require('./books.js'); console.log(BOOKS.length, BOOKS[0].id, BOOKS[0].lines.length, BOOKS[0].lines[0].audio, BOOKS[0].lines[0].hrHalf1);"`
+Expected: `1 example-book 3 audio/example-book/line01.mp3 Ovo je primjer rečenice.` (the last field is `hrHalf1` for a 5-word sentence with no mid-range comma, so `splitBookSentence` falls back to the word-count split; `mid = Math.ceil(5/2) = 3`, giving `hrHalf1` = the first 3 words "Ovo je primjer" - if your actual output differs from what's shown here, trust the real output over this description and just confirm it's a non-empty string that's a genuine prefix of line 1's `hr` text).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add books.js
+git commit -m "Add books.js with one fictional example entry"
+```
+
+---
+
+### Task 2: Wire Books into the home screen and reuse the Stories reader
+
+**Files:**
+- Modify: `index.html`
+
+**Interfaces:**
+- Consumes: `BOOKS` (Task 1), the existing `story`, `advance()`, `attemptPlay()`, `showDone()`, `showScreen()`, `syncFromUrl()`, `showSection()` from the current `index.html`.
+- Produces: `#bookList` container, `#booksTabOption`, `selectBook(id)`, `renderBooks()`; generalizes `selectStory`, `showDone`, `showSection`, `syncFromUrl` to also handle Books via a new `contentKind` variable (`"story" | "book"`).
+
+- [ ] **Step 1: Add the third tab option and book-list container to the home screen markup**
+
+Change:
+
+```html
+    <div class="speed-toggle-group" id="sectionTabs">
+      <div id="storiesTabOption" class="speed-option active">Priče</div>
+      <div id="songsTabOption" class="speed-option">Pjesme</div>
+    </div>
+    <div class="story-list" id="storyList"></div>
+    <div class="story-list" id="songList" hidden></div>
+```
+
+to:
+
+```html
+    <div class="speed-toggle-group" id="sectionTabs">
+      <div id="storiesTabOption" class="speed-option active">Priče</div>
+      <div id="songsTabOption" class="speed-option">Pjesme</div>
+      <div id="booksTabOption" class="speed-option">Knjige</div>
+    </div>
+    <div class="story-list" id="storyList"></div>
+    <div class="story-list" id="songList" hidden></div>
+    <div class="story-list" id="bookList" hidden></div>
+```
+
+- [ ] **Step 2: Add `<script src="books.js"></script>` next to the existing data-file script tags**
+
+Change:
+
+```html
+  <script src="stories.js"></script>
+  <script src="songs.js"></script>
+```
+
+to:
+
+```html
+  <script src="stories.js"></script>
+  <script src="songs.js"></script>
+  <script src="books.js"></script>
+```
+
+- [ ] **Step 3: Add the new DOM refs**
+
+Near the existing `const songList = document.getElementById("songList");` line, add:
+
+```js
+    const bookList = document.getElementById("bookList");
+    const booksTabOption = document.getElementById("booksTabOption");
+```
+
+- [ ] **Step 4: Add a `contentKind` variable next to `story`**
+
+Change:
+
+```js
+    let story = null;
+    let song = null;
+```
+
+to:
+
+```js
+    let story = null; // the current STORIES or BOOKS entry being read - same shape either way
+    let contentKind = null; // "story" | "book" - which list `story` came from
+    let song = null;
+```
+
+- [ ] **Step 5: Include `bookList` in the shared `showScreen` screen list is NOT needed** - `bookList` is a sub-element of `homeScreen` (like `storyList`/`songList`), not a top-level screen, so `showScreen()` itself needs no change. Skip this step - it's a note, not an edit.
+
+- [ ] **Step 6: Add `renderBooks()` and `selectBook(id)`**
+
+Add this right after the existing `renderSongs()` function:
+
+```js
+    function renderBooks() {
+      bookList.innerHTML = "";
+      BOOKS.forEach((b) => {
+        const a = document.createElement("a");
+        a.className = "story-card";
+        a.href = `index.html?book=${b.id}`;
+        a.innerHTML = `
+          <div class="icon">${b.emoji}</div>
+          <div class="text">
+            <div class="hr">${b.titleEn}</div>
+            <div class="en">${b.titleHr}</div>
+            <div class="meta">${b.lines.length} redaka</div>
+          </div>
+        `;
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          history.pushState({ book: b.id }, "", `index.html?book=${b.id}`);
+          selectBook(b.id);
+        });
+        bookList.appendChild(a);
+      });
+    }
+```
+
+Add `selectBook` right after the existing `selectStory` function (defined later in the file - see Step 8):
+
+```js
+    function selectBook(id) {
+      story = BOOKS.find((b) => b.id === id) || BOOKS[0];
+      contentKind = "book";
+      idx = 0;
+      slowMode = false;
+      playingHalf = "a";
+      repeat = 1;
+      normalOption.classList.add("active");
+      slowOption.classList.remove("active");
+      doneScreen.hidden = true;
+      playerTop.hidden = false;
+      lineArea.hidden = false;
+      controls.hidden = false;
+      showScreen(playerScreen);
+      renderCurrent();
+    }
+```
+
+- [ ] **Step 7: Call `renderBooks()` alongside the existing render calls**
+
+Change:
+
+```js
+    renderHome();
+    renderSongs();
+    syncFromUrl();
+```
+
+to:
+
+```js
+    renderHome();
+    renderSongs();
+    renderBooks();
+    syncFromUrl();
+```
+
+- [ ] **Step 8: Set `contentKind = "story"` in `selectStory`, and make `showDone()`/`showHome()` content-aware**
+
+Change:
+
+```js
+    function selectStory(id) {
+      story = STORIES.find((s) => s.id === id) || STORIES[0];
+      idx = 0;
+```
+
+to:
+
+```js
+    function selectStory(id) {
+      story = STORIES.find((s) => s.id === id) || STORIES[0];
+      contentKind = "story";
+      idx = 0;
+```
+
+Change:
+
+```js
+    function showHome() {
+      story = null;
+      song = null;
+      showScreen(homeScreen);
+    }
+```
+
+to:
+
+```js
+    function showHome() {
+      story = null;
+      contentKind = null;
+      song = null;
+      showScreen(homeScreen);
+    }
+```
+
+Change:
+
+```js
+    function showDone() {
+      playerTop.hidden = true;
+      lineArea.hidden = true;
+      controls.hidden = true;
+      doneScreen.hidden = false;
+      scheduleAdvance(2500, () => {
+        history.pushState(null, "", "index.html");
+        showHome();
+      });
+    }
+```
+
+to:
+
+```js
+    function showDone() {
+      playerTop.hidden = true;
+      lineArea.hidden = true;
+      controls.hidden = true;
+      doneScreen.querySelector(".line-hr").textContent = contentKind === "book" ? "Kraj knjige" : "Kraj priče";
+      doneScreen.hidden = false;
+      scheduleAdvance(2500, () => {
+        history.pushState(null, "", "index.html");
+        showHome();
+      });
+    }
+```
+
+(This requires `doneScreen`'s markup to have a `.line-hr` element inside it, which it already does - see the existing `<div class="done" id="doneScreen" hidden><div class="line-hr">Kraj priče</div>...`. No markup change needed, just the new line of JS above.)
+
+- [ ] **Step 9: Extend `showSection()` to a 3-way toggle**
+
+Change:
+
+```js
+    function showSection(section) {
+      const showingSongs = section === "songs";
+      storiesTabOption.classList.toggle("active", !showingSongs);
+      songsTabOption.classList.toggle("active", showingSongs);
+      storyList.hidden = showingSongs;
+      songList.hidden = !showingSongs;
+      homeHeading.textContent = showingSongs ? "🎸 Pjesme" : "📖 Priče";
+    }
+
+    storiesTabOption.addEventListener("click", () => showSection("stories"));
+    songsTabOption.addEventListener("click", () => showSection("songs"));
+```
+
+to:
+
+```js
+    function showSection(section) {
+      storiesTabOption.classList.toggle("active", section === "stories");
+      songsTabOption.classList.toggle("active", section === "songs");
+      booksTabOption.classList.toggle("active", section === "books");
+      storyList.hidden = section !== "stories";
+      songList.hidden = section !== "songs";
+      bookList.hidden = section !== "books";
+      homeHeading.textContent =
+        section === "songs" ? "🎸 Pjesme" : section === "books" ? "📚 Knjige" : "📖 Priče";
+    }
+
+    storiesTabOption.addEventListener("click", () => showSection("stories"));
+    songsTabOption.addEventListener("click", () => showSection("songs"));
+    booksTabOption.addEventListener("click", () => showSection("books"));
+```
+
+- [ ] **Step 10: Teach `syncFromUrl()` about `?book=`**
+
+Change:
+
+```js
+    function syncFromUrl() {
+      const params = new URLSearchParams(location.search);
+      const storyId = params.get("story");
+      const songId = params.get("song");
+      if (storyId && STORIES.some((s) => s.id === storyId)) {
+        selectStory(storyId);
+      } else if (songId && SONGS.some((s) => s.id === songId)) {
+        selectSong(songId);
+        if (params.get("play")) enterPerformance(false);
+      } else {
+        showHome();
+      }
+    }
+```
+
+to:
+
+```js
+    function syncFromUrl() {
+      const params = new URLSearchParams(location.search);
+      const storyId = params.get("story");
+      const songId = params.get("song");
+      const bookId = params.get("book");
+      if (storyId && STORIES.some((s) => s.id === storyId)) {
+        selectStory(storyId);
+      } else if (songId && SONGS.some((s) => s.id === songId)) {
+        selectSong(songId);
+        if (params.get("play")) enterPerformance(false);
+      } else if (bookId && BOOKS.some((b) => b.id === bookId)) {
+        selectBook(bookId);
+      } else {
+        showHome();
+      }
+    }
+```
+
+- [ ] **Step 11: Verify the script still parses**
+
+Run: `node -e "const fs = require('fs'); new Function(fs.readFileSync('index.html', 'utf8').match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1].replace(/STORIES/g, 'globalThis.STORIES||[]').replace(/SONGS/g, 'globalThis.SONGS||[]').replace(/BOOKS/g, 'globalThis.BOOKS||[]')); console.log('parses OK');"`
+Expected: `parses OK`
+
+- [ ] **Step 12: Hand-trace the content-kind wiring**
+
+Confirm by reading the edited file: selecting a book sets `contentKind = "book"` and `story` to the BOOKS entry; `advance()`/`attemptPlay()`/`playCurrent()`/`renderCurrent()` are completely unmodified and only ever read `story.lines[idx]`, so they work identically for a book as for a story; reaching the last line calls `showDone()`, which now reads `contentKind` to show "Kraj knjige" instead of "Kraj priče"; the 2.5s timeout then returns to `index.html` (bare, no query param) and `showHome()` resets both `story` and `contentKind` to null/`song` to null - clean state for the next selection regardless of which section it came from.
+
+- [ ] **Step 13: Commit**
+
+```bash
+git add index.html
+git commit -m "Add Knjige tab, reusing the Stories reader screen for Books"
+```
+
+---
+
+### Task 3: Audio generation script + README
+
+**Files:**
+- Modify: `scripts/generate-audio.js`
+- Modify: `README.md`
+
+**Interfaces:**
+- Consumes: `BOOKS` (Task 1).
+- Produces: no new functions - `main()` now iterates stories and books through the same loop body.
+
+- [ ] **Step 1: Require `books.js` and process both lists**
+
+Change:
+
+```js
+const fs = require("fs");
+const path = require("path");
+const STORIES = require("../stories.js");
+```
+
+to:
+
+```js
+const fs = require("fs");
+const path = require("path");
+const STORIES = require("../stories.js");
+const BOOKS = require("../books.js");
+```
+
+Change:
+
+```js
+async function main() {
+  for (const story of STORIES) {
+    const dir = path.join(__dirname, "..", "audio", story.id);
+```
+
+to:
+
+```js
+async function main() {
+  for (const story of [...STORIES, ...BOOKS]) {
+    const dir = path.join(__dirname, "..", "audio", story.id);
+```
+
+(The loop body below already refers only to `story.id`/`story.lines`/etc., which both `STORIES` and `BOOKS` entries have identically - no other change needed in this file.)
+
+- [ ] **Step 2: Verify the script still parses**
+
+Run: `node -c scripts/generate-audio.js`
+Expected: no output, exit code 0 (this only checks JS syntax validity, not that it runs - running it would call the real ElevenLabs API and cost credits, so do not run it as part of this task).
+
+- [ ] **Step 3: Add README documentation**
+
+In `README.md`, change the "How it works" bullet list to add a `books.js` line right after the existing `songs.js` line:
+
+```markdown
+- `books.js` — Croatian reading-companion text for physical books, one entry per book, same shape and audio pipeline as `stories.js`. Reachable via the "Knjige" tab. Uses the exact same player screen as Priče (large Croatian line, English below, Polako slow mode, pause) - Books and Stories are read identically.
+```
+
+Add a new section right after "## Adding or editing a story" (before "## Generating audio (ElevenLabs)"):
+
+```markdown
+## Adding a book
+
+`books.js` holds one object per book: `{ id, emoji, titleHr, titleEn, lines: [{hr, en}] }` - the same shape as a story. Break `lines` wherever makes sense to you (a whole page, one sentence, part of a sentence) - there's no fixed rule.
+
+**Never generate, transcribe, or translate a real book's text via an AI assistant.** Book text is copyrighted; type in the English original and your own Croatian translation yourself, from the physical book in hand. This app is a reading companion used alongside the book, not a replacement for it - no page images are stored, just the text you choose to add.
+
+Once a book's `lines` are filled in, generate its audio the same way as stories (see below) - `scripts/generate-audio.js` processes `books.js` and `stories.js` together.
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add scripts/generate-audio.js README.md
+git commit -m "Extend generate-audio.js to cover books.js; document the Books section"
+```
+
+---
+
+## Final Verification (after all tasks)
+
+- [ ] `git log --oneline -3` shows the 3 commits from this plan on top of existing history.
+- [ ] Confirm no leftover references to undefined functions: grep `index.html` for every new identifier used (`bookList`, `booksTabOption`, `selectBook`, `renderBooks`, `contentKind`, `BOOKS`) and confirm each is defined exactly once and referenced consistently.
+- [ ] Full click-through UAT (Home → Knjige tab → Example Book → reader auto-plays/advances/pauses/Polako works → reaches "Kraj knjige" → auto-returns home) is the user's to run, not part of this plan's execution - matches how the Songs plan handled this.
