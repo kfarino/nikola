@@ -20,9 +20,11 @@
     <div class="speed-toggle-group" id="sectionTabs">
       <div id="storiesTabOption" class="speed-option active">Priče</div>
       <div id="songsTabOption" class="speed-option">Pjesme</div>
+      <div id="booksTabOption" class="speed-option">Knjige</div>
     </div>
     <div class="story-list" id="storyList"></div>
     <div class="story-list" id="songList" hidden></div>
+    <div class="story-list" id="bookList" hidden></div>
   </div>
 
   <div class="player" id="playerScreen" hidden>
@@ -86,6 +88,7 @@
 
   <script src="stories.js"></script>
   <script src="songs.js"></script>
+  <script src="books.js"></script>
   <script>
     const homeScreen = document.getElementById("homeScreen");
     const playerScreen = document.getElementById("playerScreen");
@@ -104,8 +107,10 @@
     const slowOption = document.getElementById("slowOption");
     const homeHeading = document.getElementById("homeHeading");
     const songList = document.getElementById("songList");
+    const bookList = document.getElementById("bookList");
     const storiesTabOption = document.getElementById("storiesTabOption");
     const songsTabOption = document.getElementById("songsTabOption");
+    const booksTabOption = document.getElementById("booksTabOption");
     const songPreviewScreen = document.getElementById("songPreviewScreen");
     const songPreviewArtist = document.getElementById("songPreviewArtist");
     const songPreviewTitle = document.getElementById("songPreviewTitle");
@@ -119,7 +124,8 @@
     const songPauseBtn = document.getElementById("songPauseBtn");
     const songPlayBackLink = document.getElementById("songPlayBackLink");
 
-    let story = null;
+    let story = null; // the current STORIES or BOOKS entry being read - same shape either way
+    let contentKind = null; // "story" | "book" - which list `story` came from
     let song = null;
     let idx = 0;
     let slowMode = false;
@@ -198,6 +204,29 @@
           selectSong(s.id);
         });
         songList.appendChild(a);
+      });
+    }
+
+    function renderBooks() {
+      bookList.innerHTML = "";
+      BOOKS.forEach((b) => {
+        const a = document.createElement("a");
+        a.className = "story-card";
+        a.href = `index.html?book=${b.id}`;
+        a.innerHTML = `
+          <div class="icon">${b.emoji}</div>
+          <div class="text">
+            <div class="hr">${b.titleHr}</div>
+            <div class="en">${b.titleEn}</div>
+            <div class="meta">${b.lines.length} redaka</div>
+          </div>
+        `;
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          history.pushState({ book: b.id }, "", `index.html?book=${b.id}`);
+          selectBook(b.id);
+        });
+        bookList.appendChild(a);
       });
     }
 
@@ -324,25 +353,47 @@
     });
 
     function showSection(section) {
-      const showingSongs = section === "songs";
-      storiesTabOption.classList.toggle("active", !showingSongs);
-      songsTabOption.classList.toggle("active", showingSongs);
-      storyList.hidden = showingSongs;
-      songList.hidden = !showingSongs;
-      homeHeading.textContent = showingSongs ? "🎸 Pjesme" : "📖 Priče";
+      storiesTabOption.classList.toggle("active", section === "stories");
+      songsTabOption.classList.toggle("active", section === "songs");
+      booksTabOption.classList.toggle("active", section === "books");
+      storyList.hidden = section !== "stories";
+      songList.hidden = section !== "songs";
+      bookList.hidden = section !== "books";
+      homeHeading.textContent =
+        section === "songs" ? "🎸 Pjesme" : section === "books" ? "📚 Knjige" : "📖 Priče";
     }
 
     storiesTabOption.addEventListener("click", () => showSection("stories"));
     songsTabOption.addEventListener("click", () => showSection("songs"));
+    booksTabOption.addEventListener("click", () => showSection("books"));
 
     function showHome() {
       story = null;
+      contentKind = null;
       song = null;
       showScreen(homeScreen);
     }
 
     function selectStory(id) {
       story = STORIES.find((s) => s.id === id) || STORIES[0];
+      contentKind = "story";
+      idx = 0;
+      slowMode = false;
+      playingHalf = "a";
+      repeat = 1;
+      normalOption.classList.add("active");
+      slowOption.classList.remove("active");
+      doneScreen.hidden = true;
+      playerTop.hidden = false;
+      lineArea.hidden = false;
+      controls.hidden = false;
+      showScreen(playerScreen);
+      renderCurrent();
+    }
+
+    function selectBook(id) {
+      story = BOOKS.find((b) => b.id === id) || BOOKS[0];
+      contentKind = "book";
       idx = 0;
       slowMode = false;
       playingHalf = "a";
@@ -436,6 +487,7 @@
       playerTop.hidden = true;
       lineArea.hidden = true;
       controls.hidden = true;
+      doneScreen.querySelector(".line-hr").textContent = contentKind === "book" ? "Kraj knjige" : "Kraj priče";
       doneScreen.hidden = false;
       scheduleAdvance(2500, () => {
         history.pushState(null, "", "index.html");
@@ -517,11 +569,14 @@
       const params = new URLSearchParams(location.search);
       const storyId = params.get("story");
       const songId = params.get("song");
+      const bookId = params.get("book");
       if (storyId && STORIES.some((s) => s.id === storyId)) {
         selectStory(storyId);
       } else if (songId && SONGS.some((s) => s.id === songId)) {
         selectSong(songId);
         if (params.get("play")) enterPerformance(false);
+      } else if (bookId && BOOKS.some((b) => b.id === bookId)) {
+        selectBook(bookId);
       } else {
         showHome();
       }
@@ -530,6 +585,7 @@
 
     renderHome();
     renderSongs();
+    renderBooks();
     syncFromUrl();
 
     // Keep the screen awake for the duration of the story.
