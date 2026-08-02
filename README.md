@@ -7,12 +7,21 @@ A tiny app for reading simple, repetitive Croatian stories to a baby. Plain HTML
 - `stories.js` — all story text (Croatian + English), one entry per line.
 - `index.html` — the whole app: a home screen (lists the stories) and a player screen (shows one line at a time, Croatian large, English below, plays that line's audio, and auto-advances when it finishes; tap "Ponovi" to replay). Both live in one page — selecting a story swaps the view with JS (`history.pushState`, no real navigation) instead of loading a separate page, so the tap that picks a story is still an active user gesture when `audio.play()` is called. That's required for the first line to autoplay on iOS Safari; a real page load would lose the gesture and autoplay would get blocked.
 - `audio/<storyId>/lineNN.mp3` — pre-generated narration, one file per line, committed to the repo.
+- `songs.js` — song chords and lyrics, one entry per song. Reachable via the "Pjesme" tab next to "Priče" on the home screen. Picking a song opens a chord-preview screen (title, artist, key/capo, and each section's chord progression) with a "Sviraj" button; tapping it opens a performance screen with a big chord widget for the current section and an auto-scrolling lyric line, plus prev/next-section, pause, and speed controls, meant to be propped up while you play guitar and sing live.
 
 ## Adding or editing a story
 
 1. Edit `stories.js` — add a story object (`id`, `titleHr`, `titleEn`, `lines: [{hr, en}]`) or change existing line text. Don't hand-write the `audio` path — it's filled in automatically from `id` + line position.
 2. Regenerate audio for that story (see below) so the MP3s match the new text.
 3. Commit the updated `stories.js` and the new/changed MP3s together.
+
+## Adding a song / filling in lyrics
+
+`songs.js` holds one object per song: `{ id, title, artist, key, capo, sections: [{ label, chords, lines }] }`. `chords` is that section's chord progression (shown on the performance screen's chord widget); `lines` is an array with one entry per lyric line, meant to be filled in by hand later — new sections are added with each line as an empty string (`""`) as a placeholder.
+
+**Never generate, transcribe, or paste song lyrics via an AI assistant** — lyrics are copyrighted, so `lines` should only ever be typed in yourself, from memory or a lyric sheet you already have.
+
+There's no audio for songs — unlike stories, the guitar and vocals are played live, so the performance screen only shows chords and scrolls lyric text; it never touches `<audio>`.
 
 ## Generating audio (ElevenLabs)
 

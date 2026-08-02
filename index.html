@@ -140,6 +140,18 @@
     const MIN_INTERVAL_MS = 1500;
     const MAX_INTERVAL_MS = 10000;
 
+    // Shared by every screen transition so exactly one of the 4 top-level
+    // screens is ever visible, and any pending Story/Song timer or playing
+    // audio from the screen we're leaving is stopped.
+    function showScreen(el) {
+      clearTimeout(pendingTimer);
+      clearTimeout(songTimer);
+      audio.pause();
+      [homeScreen, playerScreen, songPreviewScreen, songPlayScreen].forEach((s) => {
+        s.hidden = s !== el;
+      });
+    }
+
     function renderHome() {
       storyList.innerHTML = "";
       STORIES.forEach((s) => {
@@ -202,9 +214,7 @@
           </div>
         `)
         .join("");
-      homeScreen.hidden = true;
-      playerScreen.hidden = true;
-      songPreviewScreen.hidden = false;
+      showScreen(songPreviewScreen);
     }
 
     songPreviewBackLink.addEventListener("click", (e) => {
@@ -252,27 +262,42 @@
       if (!songPaused) scheduleSongAdvance();
     }
 
-    function enterPerformance() {
+    // Jumps a whole section at a time (wrapping at both ends), unlike
+    // advanceSongLine above which steps one lyric line at a time. Used by the
+    // prev/next buttons, since every section's chords only change at section
+    // boundaries and lines are currently blank placeholders.
+    function advanceSongSection(direction) {
+      clearTimeout(songTimer);
+      if (direction === "forward") {
+        sectionIdx = sectionIdx < song.sections.length - 1 ? sectionIdx + 1 : 0;
+      } else {
+        sectionIdx = sectionIdx > 0 ? sectionIdx - 1 : song.sections.length - 1;
+      }
+      lineIdx = 0;
+      renderSongLine();
+      if (!songPaused) scheduleSongAdvance();
+    }
+
+    function enterPerformance(pushHistory = true) {
+      if (pushHistory) {
+        history.pushState({ song: song.id, play: true }, "", `index.html?song=${song.id}&play=1`);
+      }
       sectionIdx = 0;
       lineIdx = 0;
       songPaused = false;
       songPauseBtn.textContent = "⏸";
-      homeScreen.hidden = true;
-      songPreviewScreen.hidden = true;
-      songPlayScreen.hidden = false;
+      showScreen(songPlayScreen);
       renderSongLine();
       scheduleSongAdvance();
     }
 
-    songPlayBtn.addEventListener("click", enterPerformance);
+    songPlayBtn.addEventListener("click", () => enterPerformance());
 
     document.getElementById("songPrevBtn").addEventListener("click", () => {
-      clearTimeout(songTimer);
-      advanceSongLine("backward");
+      advanceSongSection("backward");
     });
     document.getElementById("songNextBtn").addEventListener("click", () => {
-      clearTimeout(songTimer);
-      advanceSongLine("forward");
+      advanceSongSection("forward");
     });
 
     songPauseBtn.addEventListener("click", () => {
@@ -311,15 +336,9 @@
     songsTabOption.addEventListener("click", () => showSection("songs"));
 
     function showHome() {
-      clearTimeout(pendingTimer);
-      clearTimeout(songTimer);
-      audio.pause();
       story = null;
       song = null;
-      playerScreen.hidden = true;
-      songPreviewScreen.hidden = true;
-      songPlayScreen.hidden = true;
-      homeScreen.hidden = false;
+      showScreen(homeScreen);
     }
 
     function selectStory(id) {
@@ -334,8 +353,7 @@
       playerTop.hidden = false;
       lineArea.hidden = false;
       controls.hidden = false;
-      homeScreen.hidden = true;
-      playerScreen.hidden = false;
+      showScreen(playerScreen);
       renderCurrent();
     }
 
@@ -503,6 +521,7 @@
         selectStory(storyId);
       } else if (songId && SONGS.some((s) => s.id === songId)) {
         selectSong(songId);
+        if (params.get("play")) enterPerformance(false);
       } else {
         showHome();
       }
