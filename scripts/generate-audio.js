@@ -3,8 +3,13 @@
 // (audio/<storyId>/lineNN.mp3). Run this locally whenever story text changes.
 //
 // Usage:
-//   ELEVENLABS_API_KEY=... node scripts/generate-audio.js
+//   ELEVENLABS_API_KEY=... node scripts/generate-audio.js [id]
 //   (or set both in a local .env file — see .env, which is gitignored)
+//
+// Optional [id] regenerates just that one story/book (matched against its
+// `id` field) instead of everything — use this when editing a single book or
+// story so you don't burn API calls (and rewrite already-committed MP3s with
+// new non-deterministic TTS bytes) for every other unchanged entry.
 //
 // Defaults to "Fran - Calm, Narrative" (voice_id TRnNlYQWHAJwo9K75wNE): a warm, calm,
 // medium-to-deep Croatian male voice trained on studio-quality audiobook/documentary
@@ -21,11 +26,24 @@ const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "TRnNlYQWHAJwo9K75wNE";
 const MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 const NORMAL_SPEED = 0.85;
 const SLOW_SPEED = 0.7;
+const targetId = process.argv[2];
 
 if (!API_KEY) {
   console.error(
     "Missing ELEVENLABS_API_KEY. Set it as an env var or in a local .env file before running.\n" +
       "Example: ELEVENLABS_API_KEY=xxx node scripts/generate-audio.js"
+  );
+  process.exit(1);
+}
+
+const items = targetId
+  ? [...STORIES, ...BOOKS].filter((item) => item.id === targetId)
+  : [...STORIES, ...BOOKS];
+
+if (targetId && items.length === 0) {
+  console.error(
+    `No story or book found with id "${targetId}". Check the id in stories.js / books.js.\n` +
+      "Example: node scripts/generate-audio.js example-book"
   );
   process.exit(1);
 }
@@ -54,7 +72,7 @@ async function synthesize(text, speed) {
 }
 
 async function main() {
-  for (const story of [...STORIES, ...BOOKS]) {
+  for (const story of items) {
     const dir = path.join(__dirname, "..", "audio", story.id);
     fs.mkdirSync(dir, { recursive: true });
 

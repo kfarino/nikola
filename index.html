@@ -374,9 +374,9 @@
       showScreen(homeScreen);
     }
 
-    function selectStory(id) {
-      story = STORIES.find((s) => s.id === id) || STORIES[0];
-      contentKind = "story";
+    function selectContent(id, list) {
+      story = list.find((s) => s.id === id) || list[0];
+      contentKind = list === BOOKS ? "book" : "story";
       idx = 0;
       slowMode = false;
       playingHalf = "a";
@@ -391,21 +391,12 @@
       renderCurrent();
     }
 
+    function selectStory(id) {
+      selectContent(id, STORIES);
+    }
+
     function selectBook(id) {
-      story = BOOKS.find((b) => b.id === id) || BOOKS[0];
-      contentKind = "book";
-      idx = 0;
-      slowMode = false;
-      playingHalf = "a";
-      repeat = 1;
-      normalOption.classList.add("active");
-      slowOption.classList.remove("active");
-      doneScreen.hidden = true;
-      playerTop.hidden = false;
-      lineArea.hidden = false;
-      controls.hidden = false;
-      showScreen(playerScreen);
-      renderCurrent();
+      selectContent(id, BOOKS);
     }
 
     function attemptPlay() {
@@ -520,6 +511,15 @@
 
       const pauseMultiplier = slowMode ? SLOW_PAUSE_MULT : NORMAL_PAUSE_MULT;
       scheduleAdvance(spokenSeconds * pauseMultiplier * 1000, () => advance("forward"));
+    });
+
+    // If the audio file 404s or otherwise fails to load (e.g. the shipped
+    // example book, which has no committed audio), "ended" never fires and
+    // playback would hang forever. Treat a load failure like a normal-speed
+    // "ended" - a short fixed pause (in place of the missing clip's duration),
+    // then advance - so the reader never gets stuck.
+    audio.addEventListener("error", () => {
+      scheduleAdvance(NORMAL_PAUSE_MULT * 1000, () => advance("forward"));
     });
 
     document.getElementById("prevBtn").addEventListener("click", () => advance("backward"));

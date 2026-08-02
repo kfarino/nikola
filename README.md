@@ -22,7 +22,9 @@ A tiny app for reading simple, repetitive Croatian stories to a baby. Plain HTML
 
 **Never generate, transcribe, or translate a real book's text via an AI assistant.** Book text is copyrighted; type in the English original and your own Croatian translation yourself, from the physical book in hand. This app is a reading companion used alongside the book, not a replacement for it - no page images are stored, just the text you choose to add.
 
-Once a book's `lines` are filled in, generate its audio the same way as stories (see below) - `scripts/generate-audio.js` processes `books.js` and `stories.js` together.
+Once a book's `lines` are filled in, generate its audio the same way as stories (see below) - `scripts/generate-audio.js` processes `books.js` and `stories.js` together (pass an id to regenerate just one entry, e.g. `node scripts/generate-audio.js my-book-id`).
+
+Note: the shipped `example-book` entry has no audio under `audio/example-book/` - it's just a placeholder to show the data shape, not a real book to read. Tapping through it will hit the missing-audio fallback (auto-advance after a short pause, same as if a line's clip were silent) rather than real narration, until you replace it with your own book and run the audio-generation script.
 
 ## Adding a song / filling in lyrics
 
@@ -43,7 +45,12 @@ Default voice: **Fran — Calm, Narrative** (`TRnNlYQWHAJwo9K75wNE`), a warm, me
    ```
    node scripts/generate-audio.js
    ```
-   This regenerates **every** line for **every** story using the default voice above. To try a different voice, browse https://elevenlabs.io/app/voice-library and pass `ELEVENLABS_VOICE_ID=...`. It overwrites existing files, so it's safe to re-run any time story text changes.
+   This regenerates **every** line for **every** story and book using the default voice above. To try a different voice, browse https://elevenlabs.io/app/voice-library and pass `ELEVENLABS_VOICE_ID=...`. It overwrites existing files, so it's safe to re-run any time story text changes.
+
+   To regenerate just one story or book (e.g. after editing a single book, so you don't re-synthesize and rewrite every other unchanged story/book's already-committed MP3s), pass its `id` as an argument:
+   ```
+   node scripts/generate-audio.js example-book
+   ```
 3. Review the generated MP3s, then commit them.
 
 Requires Node 18+ (uses the built-in `fetch`). No `npm install` needed.
