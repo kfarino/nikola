@@ -14,6 +14,7 @@
 const fs = require("fs");
 const path = require("path");
 const STORIES = require("../stories.js");
+const BOOKS = require("../books.js");
 
 const API_KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "TRnNlYQWHAJwo9K75wNE";
@@ -53,7 +54,7 @@ async function synthesize(text, speed) {
 }
 
 async function main() {
-  for (const story of STORIES) {
+  for (const story of [...STORIES, ...BOOKS]) {
     const dir = path.join(__dirname, "..", "audio", story.id);
     fs.mkdirSync(dir, { recursive: true });
 

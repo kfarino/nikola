@@ -8,12 +8,21 @@ A tiny app for reading simple, repetitive Croatian stories to a baby. Plain HTML
 - `index.html` — the whole app: a home screen (lists the stories) and a player screen (shows one line at a time, Croatian large, English below, plays that line's audio, and auto-advances when it finishes; tap "Ponovi" to replay). Both live in one page — selecting a story swaps the view with JS (`history.pushState`, no real navigation) instead of loading a separate page, so the tap that picks a story is still an active user gesture when `audio.play()` is called. That's required for the first line to autoplay on iOS Safari; a real page load would lose the gesture and autoplay would get blocked.
 - `audio/<storyId>/lineNN.mp3` — pre-generated narration, one file per line, committed to the repo.
 - `songs.js` — song chords and lyrics, one entry per song. Reachable via the "Pjesme" tab next to "Priče" on the home screen. Picking a song opens a chord-preview screen (title, artist, key/capo, and each section's chord progression) with a "Sviraj" button; tapping it opens a performance screen with a big chord widget for the current section and an auto-scrolling lyric line, plus prev/next-section, pause, and speed controls, meant to be propped up while you play guitar and sing live.
+- `books.js` — Croatian reading-companion text for physical books, one entry per book, same shape and audio pipeline as `stories.js`. Reachable via the "Knjige" tab. Uses the exact same player screen as Priče (large Croatian line, English below, Polako slow mode, pause) - Books and Stories are read identically.
 
 ## Adding or editing a story
 
 1. Edit `stories.js` — add a story object (`id`, `titleHr`, `titleEn`, `lines: [{hr, en}]`) or change existing line text. Don't hand-write the `audio` path — it's filled in automatically from `id` + line position.
 2. Regenerate audio for that story (see below) so the MP3s match the new text.
 3. Commit the updated `stories.js` and the new/changed MP3s together.
+
+## Adding a book
+
+`books.js` holds one object per book: `{ id, emoji, titleHr, titleEn, lines: [{hr, en}] }` - the same shape as a story. Break `lines` wherever makes sense to you (a whole page, one sentence, part of a sentence) - there's no fixed rule.
+
+**Never generate, transcribe, or translate a real book's text via an AI assistant.** Book text is copyrighted; type in the English original and your own Croatian translation yourself, from the physical book in hand. This app is a reading companion used alongside the book, not a replacement for it - no page images are stored, just the text you choose to add.
+
+Once a book's `lines` are filled in, generate its audio the same way as stories (see below) - `scripts/generate-audio.js` processes `books.js` and `stories.js` together.
 
 ## Adding a song / filling in lyrics
 
