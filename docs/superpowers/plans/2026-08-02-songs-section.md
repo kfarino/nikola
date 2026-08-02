@@ -53,13 +53,13 @@ const SONGS = [
     capo: null,
     sections: [
       { label: "Intro", chords: ["Am", "C", "D", "F", "Am", "E", "Am", "E"], lines: [] },
-      { label: "Verse 1", chords: ["Am", "C", "D", "F", "Am", "C", "E", "Am", "C", "D", "F", "Am", "E"], lines: ["", "", "", ""] },
-      { label: "Verse 2", chords: ["Am", "C", "D", "F", "Am", "C", "E", "Am", "C", "D", "F", "Am", "E"], lines: ["", "", "", ""] },
-      { label: "Verse 3", chords: ["Am", "C", "D", "F", "Am", "C", "E", "Am", "C", "D", "F", "Am", "E"], lines: ["", "", "", ""] },
-      { label: "Organ Solo", chords: ["Am", "C", "D", "F", "Am", "C", "E", "Am", "C", "D", "F", "Am", "E", "Am", "C/E", "D", "F", "Am", "E"], lines: [] },
-      { label: "Verse 4", chords: ["Am", "C", "D", "F", "Am", "C", "E", "Am", "C", "D", "F", "Am", "E"], lines: ["", "", "", ""] },
-      { label: "Verse 5", chords: ["Am", "C", "D", "F", "Am", "C", "E", "Am", "C", "D", "F", "Am", "E"], lines: ["", "", "", ""] },
-      { label: "Verse 6", chords: ["Am", "C", "D", "F", "Am", "C", "E", "Am", "C", "D", "F7", "Am", "E7"], lines: ["", "", "", ""] },
+      { label: "Verse 1", chords: ["Am", "C", "D", "F", "Am", "C", "E", "E", "Am", "C", "D", "F", "Am", "E", "Am", "C", "D", "F", "Am", "E", "Am", "E"], lines: ["", "", "", ""] },
+      { label: "Verse 2", chords: ["Am", "C", "D", "F", "Am", "C", "E", "E", "Am", "C", "D", "F", "Am", "E", "Am", "C", "D", "F", "Am", "E", "Am", "E"], lines: ["", "", "", ""] },
+      { label: "Verse 3", chords: ["Am", "C", "D", "F", "Am", "C", "E", "E", "Am", "C", "D", "F", "Am", "E", "Am", "C", "D", "F", "Am", "E", "Am", "E"], lines: ["", "", "", ""] },
+      { label: "Organ Solo", chords: ["Am", "C", "D", "F", "Am", "C", "E", "E", "Am", "C", "D", "F", "Am", "E", "Am", "C/E", "D", "F", "Am", "E", "Am", "E"], lines: [] },
+      { label: "Verse 4", chords: ["Am", "C", "D", "F", "Am", "C", "E", "E", "Am", "C", "D", "F", "Am", "E", "Am", "C", "D", "F", "Am", "E", "Am", "E"], lines: ["", "", "", ""] },
+      { label: "Verse 5", chords: ["Am", "C", "D", "F", "Am", "C", "E", "E", "Am", "C", "D", "F", "Am", "E", "Am", "C", "D", "F", "Am", "E", "Am", "E"], lines: ["", "", "", ""] },
+      { label: "Verse 6", chords: ["Am", "C", "D", "F", "Am", "C", "E", "E", "Am", "C", "D", "F", "Am", "E7", "Am", "C", "D", "F7", "Am", "E7"], lines: ["", "", "", ""] },
       { label: "Coda", chords: ["Am", "Dm", "Am", "Dm", "Am", "Dm", "Am", "Dm", "Am", "Dm", "Am"], lines: [] },
     ],
   },
@@ -194,7 +194,7 @@ Expected: `parses OK`
 - [ ] **Step 3: Spot-check song count and section counts**
 
 Run: `node -e "const fs = require('fs'); const src = fs.readFileSync('songs.js', 'utf8'); const SONGS = new Function(src + '; return SONGS;')(); console.log(SONGS.length, 'songs'); SONGS.forEach(s => console.log(s.id, '-', s.sections.length, 'sections'));"`
-Expected: `9 songs` followed by each of the 9 ids with a section count matching the table above (Three Little Birds: 7, House of the Rising Sun: 9, Have You Ever Seen the Rain: 6, Be My Baby: 10, Landslide: 6, We're Going to Be Friends: 6, Bad Moon Rising: 9, Girl from the North Country: 8, You're Still the One: 7).
+Expected: `9 songs` followed by each of the 9 ids with a section count matching the table above (Three Little Birds: 7, House of the Rising Sun: 9, Have You Ever Seen the Rain: 6, Be My Baby: 10, Landslide: 7, We're Going to Be Friends: 7, Bad Moon Rising: 9, Girl from the North Country: 8, You're Still the One: 8).
 
 - [ ] **Step 4: Commit**
 
