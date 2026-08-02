@@ -52,6 +52,19 @@
     </div>
   </div>
 
+  <div class="player" id="songPreviewScreen" hidden>
+    <div class="player-top">
+      <a class="back-link" href="index.html" id="songPreviewBackLink">&lsaquo; Natrag</a>
+    </div>
+    <div class="song-preview-body">
+      <div class="eyebrow" id="songPreviewArtist"></div>
+      <h1 id="songPreviewTitle"></h1>
+      <div class="song-preview-meta" id="songPreviewMeta"></div>
+      <div class="song-preview-sections" id="songPreviewSections"></div>
+      <button id="songPlayBtn" class="replay">🎸 Sviraj</button>
+    </div>
+  </div>
+
   <audio id="audio" preload="auto" playsinline></audio>
 
   <script src="stories.js"></script>
@@ -76,8 +89,16 @@
     const songList = document.getElementById("songList");
     const storiesTabOption = document.getElementById("storiesTabOption");
     const songsTabOption = document.getElementById("songsTabOption");
+    const songPreviewScreen = document.getElementById("songPreviewScreen");
+    const songPreviewArtist = document.getElementById("songPreviewArtist");
+    const songPreviewTitle = document.getElementById("songPreviewTitle");
+    const songPreviewMeta = document.getElementById("songPreviewMeta");
+    const songPreviewSections = document.getElementById("songPreviewSections");
+    const songPreviewBackLink = document.getElementById("songPreviewBackLink");
+    const songPlayBtn = document.getElementById("songPlayBtn");
 
     let story = null;
+    let song = null;
     let idx = 0;
     let slowMode = false;
     let playingHalf = "a"; // which half is loaded when slowMode is on: "a" or "b"
@@ -138,6 +159,29 @@
       });
     }
 
+    function selectSong(id) {
+      song = SONGS.find((s) => s.id === id) || SONGS[0];
+      songPreviewArtist.textContent = song.artist;
+      songPreviewTitle.textContent = song.title;
+      songPreviewMeta.textContent = `Key of ${song.key}${song.capo ? `, capo ${song.capo}` : ""}`;
+      songPreviewSections.innerHTML = song.sections
+        .map((sec) => `
+          <div class="song-section-row">
+            <div class="song-section-label">${sec.label}</div>
+            <div class="song-section-chords">${sec.chords.join(" · ")}</div>
+          </div>
+        `)
+        .join("");
+      homeScreen.hidden = true;
+      playerScreen.hidden = true;
+      songPreviewScreen.hidden = false;
+    }
+
+    songPreviewBackLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      history.back();
+    });
+
     function showSection(section) {
       const showingSongs = section === "songs";
       storiesTabOption.classList.toggle("active", !showingSongs);
@@ -154,7 +198,9 @@
       clearTimeout(pendingTimer);
       audio.pause();
       story = null;
+      song = null;
       playerScreen.hidden = true;
+      songPreviewScreen.hidden = true;
       homeScreen.hidden = false;
     }
 
@@ -333,9 +379,12 @@
 
     function syncFromUrl() {
       const params = new URLSearchParams(location.search);
-      const id = params.get("story");
-      if (id && STORIES.some((s) => s.id === id)) {
-        selectStory(id);
+      const storyId = params.get("story");
+      const songId = params.get("song");
+      if (storyId && STORIES.some((s) => s.id === storyId)) {
+        selectStory(storyId);
+      } else if (songId && SONGS.some((s) => s.id === songId)) {
+        selectSong(songId);
       } else {
         showHome();
       }
