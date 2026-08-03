@@ -384,12 +384,18 @@ button.replay:active {
   line-height: 1.3;
   font-weight: 600;
   color: var(--label-primary);
+  min-height: 1.3em;
+  width: 100%;
 }
 
 @media (orientation: landscape) {
   .karaoke-track {
     padding: 30vh 1.5rem;
     gap: 1.1rem;
+  }
+
+  .karaoke-line {
+    min-height: 1.3em;
   }
 
   .karaoke-line {
