@@ -31,8 +31,11 @@
 // this fetches its plain-text export directly with no login.
 //
 // In every mode, each song's lyric lines skip instrumental-only sections
-// (Intro, Solo, etc. - those have no blank slots to fill) and must match
-// that song's exact number of blank slots, in the order the song plays.
+// (Intro, Solo, etc. - those have no blank slots to fill). The source
+// doesn't need to match the song's existing section structure exactly:
+// lines fill in order, extra lines get appended to the last section
+// instead of being dropped, and if there are fewer lines than blank
+// slots, the rest are just left blank.
 //
 // Run this yourself, locally - it fetches/writes real content, which
 // should never pass through a chat session.
@@ -87,21 +90,28 @@ function songSlots(song) {
   return slots;
 }
 
-// Fills one song's blanks in-memory. Throws on mismatch instead of exiting,
-// so --multi mode can validate every block before writing anything.
+// Fills one song's blanks in-memory. Doesn't require an exact line-count
+// match against the pre-existing section/chord structure - fills sections
+// in order; if the source has fewer lines than blank slots, the remaining
+// slots stay blank; if it has more, the leftover lines are appended to the
+// last section rather than dropped. This favors "just use what's in the
+// file" over exact chord-per-line alignment.
 function fillSong(song, docLines) {
   const slots = songSlots(song);
-  if (docLines.length !== slots.length) {
-    throw new Error(
-      `"${song.id}" has ${slots.length} blank lyric slots across its sections, but the source has ` +
-        `${docLines.length} non-empty lines. Fix the source (or the song's section/line structure in ` +
-        `songs.js) so the counts match.`
-    );
-  }
-  slots.forEach(([si, li], i) => {
+  const shared = Math.min(docLines.length, slots.length);
+
+  for (let i = 0; i < shared; i++) {
+    const [si, li] = slots[i];
     song.sections[si].lines[li] = docLines[i];
-  });
-  return slots.length;
+  }
+
+  const overflow = docLines.slice(shared);
+  if (overflow.length > 0) {
+    const lastSection = song.sections[song.sections.length - 1];
+    lastSection.lines.push(...overflow);
+  }
+
+  return { filled: shared, overflow: overflow.length, blankRemaining: slots.length - shared };
 }
 
 async function getSingleSourceText(source) {
@@ -144,16 +154,16 @@ async function runSingle(songId, source) {
     process.exit(1);
   }
 
-  let filled;
-  try {
-    filled = fillSong(song, docLines);
-  } catch (err) {
-    console.error(err.message + " Nothing was written.");
-    process.exit(1);
-  }
+  const result = fillSong(song, docLines);
 
   writeSongsFile(SONGS);
-  console.log(`Filled ${filled} lines for "${songId}" into songs.js.`);
+  console.log(`Filled ${result.filled} lines for "${songId}" into songs.js.`);
+  if (result.overflow > 0) {
+    console.log(`  ${result.overflow} extra line(s) appended to its last section.`);
+  }
+  if (result.blankRemaining > 0) {
+    console.log(`  ${result.blankRemaining} slot(s) left blank (source had fewer lines than the song's structure).`);
+  }
 }
 
 function runMulti(filePath) {
@@ -190,16 +200,13 @@ function runMulti(filePath) {
       process.exit(1);
     }
 
-    try {
-      const count = fillSong(song, docLines);
-      filled.push(`${songId} (${count} lines)`);
-    } catch (err) {
-      console.error(`Block for "${songId}": ${err.message}`);
-      process.exit(1);
-    }
+    const result = fillSong(song, docLines);
+    let note = `${songId} (${result.filled} lines)`;
+    if (result.overflow > 0) note += `, +${result.overflow} appended to last section`;
+    if (result.blankRemaining > 0) note += `, ${result.blankRemaining} left blank`;
+    filled.push(note);
   }
 
-  // Only write once every block in the file has validated successfully.
   writeSongsFile(SONGS);
   console.log(`Filled ${filled.length} song(s) into songs.js:\n  ${filled.join("\n  ")}`);
 }
