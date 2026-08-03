@@ -11,3 +11,18 @@ Sljedeći redak na hrvatskom.
 
 A third example line.
 Treći primjer retka.
+
+If you have several books in ONE file, separate each book's block (same
+format as above) with a line of 3+ equals signs, like this:
+
+===
+
+id: another-book-id
+emoji: 📘
+titleEn: Another Book Title
+titleHr: Naslov druge knjige
+
+First line of the second book.
+Prvi redak druge knjige.
+
+Then run: node scripts/add-book.js --multi <path-to-your-file>
