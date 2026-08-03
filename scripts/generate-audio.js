@@ -1,6 +1,8 @@
-// One-off script: generates the MP3 narration for every story line via the
-// ElevenLabs API, and saves it where stories.js already expects to find it
-// (audio/<storyId>/lineNN.mp3). Run this locally whenever story text changes.
+// One-off script: generates the MP3 narration for every story/book line via
+// the ElevenLabs API. Stories save to audio/<storyId>/lineNN.mp3 (committed -
+// original, non-copyrighted content). Books save to book-audio/<bookId>/lineNN.mp3
+// (gitignored - narration of real book text, never committed or pushed). Run
+// this locally whenever story/book text changes.
 //
 // Usage:
 //   ELEVENLABS_API_KEY=... node scripts/generate-audio.js [id]
@@ -10,6 +12,11 @@
 // `id` field) instead of everything — use this when editing a single book or
 // story so you don't burn API calls (and rewrite already-committed MP3s with
 // new non-deterministic TTS bytes) for every other unchanged entry.
+//
+// Book narration prints the real book text to your terminal as it generates
+// (so you can see what's being spoken) - run this yourself, not via an
+// assistant, since that output would otherwise put copyrighted text in a
+// chat session.
 //
 // Defaults to "Fran - Calm, Narrative" (voice_id TRnNlYQWHAJwo9K75wNE): a warm, calm,
 // medium-to-deep Croatian male voice trained on studio-quality audiobook/documentary
@@ -73,7 +80,10 @@ async function synthesize(text, speed) {
 
 async function main() {
   for (const story of items) {
-    const dir = path.join(__dirname, "..", "audio", story.id);
+    // Books' audio goes to a separate, gitignored root - it's a spoken rendition of real
+    // (possibly copyrighted) book text and must never be committed, unlike Stories' audio.
+    const audioRoot = BOOKS.includes(story) ? "book-audio" : "audio";
+    const dir = path.join(__dirname, "..", audioRoot, story.id);
     fs.mkdirSync(dir, { recursive: true });
 
     for (let i = 0; i < story.lines.length; i++) {

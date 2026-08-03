@@ -4,3 +4,4 @@ node_modules/
 songs/chord-charts/
 books/drafts/*
 !books/drafts/TEMPLATE.txt
+book-audio/
