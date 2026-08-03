@@ -152,3 +152,6 @@ const SONGS = [
     ],
   },
 ];
+
+// Node (scripts/fill-song-lyrics.js) needs this; browsers ignore it since `module` is undefined.
+if (typeof module !== "undefined") module.exports = SONGS;

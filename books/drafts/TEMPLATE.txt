@@ -1,0 +1,13 @@
+id: some-book-id
+emoji: 📗
+titleEn: Some Book Title
+titleHr: Naslov knjige
+
+An example English line goes here.
+Ovdje ide primjer retka na hrvatskom.
+
+The next line's English text.
+Sljedeći redak na hrvatskom.
+
+A third example line.
+Treći primjer retka.
