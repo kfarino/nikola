@@ -72,8 +72,8 @@
     <div class="player-top">
       <a class="back-link" href="index.html" id="songPlayBackLink">&lsaquo; Natrag</a>
     </div>
-    <div class="line-area" id="songLineArea">
-      <div class="line-hr" id="songLineText"></div>
+    <div class="karaoke-viewport" id="karaokeViewport">
+      <div class="karaoke-track" id="karaokeTrack"></div>
     </div>
     <div class="controls" id="songControls">
       <button id="songPrevBtn" class="icon-btn" aria-label="Prethodni dio">&lsaquo;</button>
@@ -120,7 +120,8 @@
     const songPlayBtn = document.getElementById("songPlayBtn");
     const songPlayScreen = document.getElementById("songPlayScreen");
     const chordWidget = document.getElementById("chordWidget");
-    const songLineText = document.getElementById("songLineText");
+    const karaokeViewport = document.getElementById("karaokeViewport");
+    const karaokeTrack = document.getElementById("karaokeTrack");
     const songPauseBtn = document.getElementById("songPauseBtn");
     const songPlayBackLink = document.getElementById("songPlayBackLink");
 
@@ -138,20 +139,22 @@
     const SLOW_PAUSE_MULT = 1; // pause after each half, in slow mode
     const NORMAL_PAUSE_MULT = 1.5; // pause after the full line, in normal mode
 
-    let sectionIdx = 0;
-    let lineIdx = 0;
-    let songTimer = null;
     let songPaused = false;
-    let scrollIntervalMs = 4000;
-    const MIN_INTERVAL_MS = 1500;
-    const MAX_INTERVAL_MS = 10000;
+    let karaokeLineOffsets = []; // [{ el, top, sectionIdx }] per rendered lyric line, in play order
+    let karaokeTrackHeight = 0;
+    let karaokeScrollPos = 0; // px scrolled so far
+    let karaokeRafId = null;
+    let karaokeLastFrameTime = 0;
+    let karaokeSpeed = 30; // px/sec - hands-free auto-scroll rate
+    const KARAOKE_MIN_SPEED = 10;
+    const KARAOKE_MAX_SPEED = 80;
 
     // Shared by every screen transition so exactly one of the 4 top-level
-    // screens is ever visible, and any pending Story/Song timer or playing
-    // audio from the screen we're leaving is stopped.
+    // screens is ever visible, and any pending Story/Song timer, running
+    // karaoke scroll, or playing audio from the screen we're leaving is stopped.
     function showScreen(el) {
       clearTimeout(pendingTimer);
-      clearTimeout(songTimer);
+      stopKaraokeScroll();
       audio.pause();
       [homeScreen, playerScreen, songPreviewScreen, songPlayScreen].forEach((s) => {
         s.hidden = s !== el;
@@ -251,104 +254,136 @@
       history.back();
     });
 
-    function currentSongLines() {
-      const section = song.sections[sectionIdx];
-      return section.lines.length > 0 ? section.lines : [""];
+    // Builds the flat, continuously-scrolling column of every lyric line in
+    // play order (instrumental sections contribute none, since their `lines`
+    // array is empty), then measures each line's vertical position so the
+    // scroll loop can look up "which section is at the read position" by
+    // position instead of by a discrete line index.
+    function renderKaraokeTrack() {
+      karaokeTrack.innerHTML = "";
+      karaokeLineOffsets = [];
+      song.sections.forEach((section, si) => {
+        section.lines.forEach((text) => {
+          const div = document.createElement("div");
+          div.className = "karaoke-line";
+          div.textContent = text;
+          karaokeTrack.appendChild(div);
+          karaokeLineOffsets.push({ el: div, sectionIdx: si, top: 0 });
+        });
+      });
+      karaokeLineOffsets.forEach((entry) => {
+        entry.top = entry.el.offsetTop;
+      });
+      karaokeTrackHeight = karaokeTrack.scrollHeight;
     }
 
-    function renderSongLine() {
-      const section = song.sections[sectionIdx];
-      chordWidget.textContent = `${section.label}: ${section.chords.join(" · ")}`;
-      songLineText.textContent = currentSongLines()[lineIdx];
+    // The section whose chords belong in the corner widget right now: the
+    // last line whose top has scrolled up to (or past) the viewport's
+    // vertical center, i.e. the line currently at the "read position".
+    function currentSectionIdx() {
+      if (karaokeLineOffsets.length === 0) return 0;
+      const readPos = karaokeScrollPos + karaokeViewport.clientHeight / 2;
+      let current = karaokeLineOffsets[0];
+      for (const entry of karaokeLineOffsets) {
+        if (entry.top <= readPos) current = entry;
+        else break;
+      }
+      return current.sectionIdx;
     }
 
-    function scheduleSongAdvance() {
-      clearTimeout(songTimer);
-      songTimer = setTimeout(() => advanceSongLine("forward"), scrollIntervalMs);
+    function updateChordWidget() {
+      const section = song.sections[currentSectionIdx()];
+      const label = `${section.label}: ${section.chords.join(" · ")}`;
+      if (chordWidget.textContent !== label) chordWidget.textContent = label;
     }
 
-    function advanceSongLine(direction) {
-      const lines = currentSongLines();
-      if (direction === "forward") {
-        if (lineIdx < lines.length - 1) {
-          lineIdx++;
-        } else if (sectionIdx < song.sections.length - 1) {
-          sectionIdx++;
-          lineIdx = 0;
-        } else {
-          sectionIdx = 0;
-          lineIdx = 0;
-        }
-      } else {
-        if (lineIdx > 0) {
-          lineIdx--;
-        } else if (sectionIdx > 0) {
-          sectionIdx--;
-          lineIdx = currentSongLines().length - 1;
+    function karaokeFrame(now) {
+      if (!karaokeLastFrameTime) karaokeLastFrameTime = now;
+      const deltaSec = (now - karaokeLastFrameTime) / 1000;
+      karaokeLastFrameTime = now;
+
+      karaokeScrollPos += karaokeSpeed * deltaSec;
+      if (karaokeTrackHeight > 0 && karaokeScrollPos >= karaokeTrackHeight) {
+        karaokeScrollPos = 0; // looped back to the start
+      }
+      karaokeTrack.style.transform = `translateY(${-karaokeScrollPos}px)`;
+      updateChordWidget();
+
+      karaokeRafId = requestAnimationFrame(karaokeFrame);
+    }
+
+    function startKaraokeScroll() {
+      cancelAnimationFrame(karaokeRafId);
+      karaokeLastFrameTime = 0;
+      karaokeRafId = requestAnimationFrame(karaokeFrame);
+    }
+
+    function stopKaraokeScroll() {
+      cancelAnimationFrame(karaokeRafId);
+      karaokeRafId = null;
+    }
+
+    // Jumps the scroll position to the start of the next/previous section
+    // that actually has lyric lines (wrapping at both ends), skipping
+    // purely instrumental sections since there's nothing to scroll to there.
+    function jumpToSection(direction) {
+      const total = song.sections.length;
+      let idx = currentSectionIdx();
+      for (let i = 0; i < total; i++) {
+        idx = direction === "forward" ? (idx + 1) % total : (idx - 1 + total) % total;
+        const firstLine = karaokeLineOffsets.find((entry) => entry.sectionIdx === idx);
+        if (firstLine) {
+          karaokeScrollPos = Math.max(0, firstLine.top - karaokeViewport.clientHeight / 2);
+          karaokeTrack.style.transform = `translateY(${-karaokeScrollPos}px)`;
+          updateChordWidget();
+          return;
         }
       }
-      renderSongLine();
-      if (!songPaused) scheduleSongAdvance();
-    }
-
-    // Jumps a whole section at a time (wrapping at both ends), unlike
-    // advanceSongLine above which steps one lyric line at a time. Used by the
-    // prev/next buttons, since every section's chords only change at section
-    // boundaries and lines are currently blank placeholders.
-    function advanceSongSection(direction) {
-      clearTimeout(songTimer);
-      if (direction === "forward") {
-        sectionIdx = sectionIdx < song.sections.length - 1 ? sectionIdx + 1 : 0;
-      } else {
-        sectionIdx = sectionIdx > 0 ? sectionIdx - 1 : song.sections.length - 1;
-      }
-      lineIdx = 0;
-      renderSongLine();
-      if (!songPaused) scheduleSongAdvance();
     }
 
     function enterPerformance(pushHistory = true) {
       if (pushHistory) {
         history.pushState({ song: song.id, play: true }, "", `index.html?song=${song.id}&play=1`);
       }
-      sectionIdx = 0;
-      lineIdx = 0;
       songPaused = false;
       songPauseBtn.textContent = "⏸";
       showScreen(songPlayScreen);
-      renderSongLine();
-      scheduleSongAdvance();
+      renderKaraokeTrack();
+      karaokeScrollPos = 0;
+      karaokeTrack.style.transform = "translateY(0px)";
+      updateChordWidget();
+      startKaraokeScroll();
     }
 
     songPlayBtn.addEventListener("click", () => enterPerformance());
 
     document.getElementById("songPrevBtn").addEventListener("click", () => {
-      advanceSongSection("backward");
+      jumpToSection("backward");
     });
     document.getElementById("songNextBtn").addEventListener("click", () => {
-      advanceSongSection("forward");
+      jumpToSection("forward");
     });
 
     songPauseBtn.addEventListener("click", () => {
       songPaused = !songPaused;
       songPauseBtn.textContent = songPaused ? "▶" : "⏸";
       if (songPaused) {
-        clearTimeout(songTimer);
+        stopKaraokeScroll();
       } else {
-        scheduleSongAdvance();
+        startKaraokeScroll();
       }
     });
 
     document.getElementById("speedUpBtn").addEventListener("click", () => {
-      scrollIntervalMs = Math.max(MIN_INTERVAL_MS, scrollIntervalMs - 500);
+      karaokeSpeed = Math.min(KARAOKE_MAX_SPEED, karaokeSpeed + 10);
     });
     document.getElementById("speedDownBtn").addEventListener("click", () => {
-      scrollIntervalMs = Math.min(MAX_INTERVAL_MS, scrollIntervalMs + 500);
+      karaokeSpeed = Math.max(KARAOKE_MIN_SPEED, karaokeSpeed - 10);
     });
 
     songPlayBackLink.addEventListener("click", (e) => {
       e.preventDefault();
-      clearTimeout(songTimer);
+      stopKaraokeScroll();
       history.back();
     });
 
