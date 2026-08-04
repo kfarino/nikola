@@ -18,13 +18,11 @@ A tiny app for reading simple, repetitive Croatian stories to a baby. Plain HTML
 
 ## Adding a book
 
-`books.js` holds one object per book: `{ id, emoji, titleHr, titleEn, lines: [{hr, en}] }` - the same shape as a story. Break `lines` wherever makes sense to you (a whole page, one sentence, part of a sentence) - there's no fixed rule.
+`books.js` holds one object per book: `{ id, emoji, titleHr, titleEn, lines: [{hr, en}] }` - the same shape as a story. Break `lines` wherever makes sense to you (a whole page, one sentence, part of a sentence) - there's no fixed rule. Edit `books.js` directly.
 
 **Never generate, transcribe, or translate a real book's text via an AI assistant.** Book text is copyrighted; type in the English original and your own Croatian translation yourself, from the physical book in hand. This app is a reading companion used alongside the book, not a replacement for it - no page images are stored, just the text you choose to add.
 
 Once a book's `lines` are filled in, generate its audio the same way as stories (see below) - `scripts/generate-audio.js` processes `books.js` and `stories.js` together (pass an id to regenerate just one entry, e.g. `node scripts/generate-audio.js my-book-id`). **Book audio saves to `book-audio/<bookId>/`, not `audio/`**, and is committed with the repo so Knjige playback works when the app is opened from GitHub. Run the generation script yourself, locally - it prints the real text to your terminal as it goes, which should never pass through a chat session.
-
-Adding several books at once: put them all in one file with each book's block separated by a line of `===`, then run `node scripts/add-book.js --multi <path>` - see `books/drafts/TEMPLATE.txt` for the exact format.
 
 ## Adding a song / filling in lyrics
 
@@ -49,7 +47,7 @@ Default voice: **Fran — Calm, Narrative** (`TRnNlYQWHAJwo9K75wNE`), a warm, me
 
    To regenerate just one story or book (e.g. after editing a single book, so you don't re-synthesize and rewrite every other unchanged story/book's already-committed MP3s), pass its `id` as an argument:
    ```
-   node scripts/generate-audio.js example-book
+   node scripts/generate-audio.js my-book-id
    ```
 3. Review the generated MP3s, then commit them.
 

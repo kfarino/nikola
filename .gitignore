@@ -1,6 +1,7 @@
-.DS_Store
-node_modules/
+# Secrets
 .env
-songs/chord-charts/
-books/drafts/*
-!books/drafts/TEMPLATE.txt
+.env.*
+
+# OS junk
+.DS_Store
+Thumbs.db
