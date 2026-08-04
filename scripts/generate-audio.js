@@ -77,33 +77,29 @@ async function synthesize(text, speed) {
   return Buffer.from(await res.arrayBuffer());
 }
 
+async function writeClip(relPath, text, speed) {
+  const outPath = path.join(__dirname, "..", relPath);
+  if (fs.existsSync(outPath)) {
+    process.stdout.write(`${relPath}: exists, skip\n`);
+    return;
+  }
+  process.stdout.write(`${relPath}: "${text}" ... `);
+  const audioBuffer = await synthesize(text, speed);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, audioBuffer);
+  console.log("done");
+}
+
 async function main() {
   for (const story of items) {
     // Books' audio goes under book-audio/; stories under audio/.
     const audioRoot = BOOKS.includes(story) ? "book-audio" : "audio";
-    const dir = path.join(__dirname, "..", audioRoot, story.id);
-    fs.mkdirSync(dir, { recursive: true });
 
     for (let i = 0; i < story.lines.length; i++) {
       const line = story.lines[i];
-
-      const fileName = path.basename(line.audio);
-      process.stdout.write(`${story.id}/${fileName}: "${line.hr}" ... `);
-      const audioBuffer = await synthesize(line.hr, NORMAL_SPEED);
-      fs.writeFileSync(path.join(dir, fileName), audioBuffer);
-      console.log("done");
-
-      const fileNameA = path.basename(line.audioSlowA);
-      process.stdout.write(`${story.id}/${fileNameA}: "${line.hrHalf1}" ... `);
-      const audioBufferA = await synthesize(line.hrHalf1, SLOW_SPEED);
-      fs.writeFileSync(path.join(dir, fileNameA), audioBufferA);
-      console.log("done");
-
-      const fileNameB = path.basename(line.audioSlowB);
-      process.stdout.write(`${story.id}/${fileNameB}: "${line.hrHalf2}" ... `);
-      const audioBufferB = await synthesize(line.hrHalf2, SLOW_SPEED);
-      fs.writeFileSync(path.join(dir, fileNameB), audioBufferB);
-      console.log("done");
+      await writeClip(line.audio, line.hr, NORMAL_SPEED);
+      await writeClip(line.audioSlowA, line.hrHalf1, SLOW_SPEED);
+      await writeClip(line.audioSlowB, line.hrHalf2, SLOW_SPEED);
     }
   }
   console.log("\nAll audio generated.");
