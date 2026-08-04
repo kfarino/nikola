@@ -1,8 +1,7 @@
 // One-off script: generates the MP3 narration for every story/book line via
-// the ElevenLabs API. Stories save to audio/<storyId>/lineNN.mp3 (committed -
-// original, non-copyrighted content). Books save to book-audio/<bookId>/lineNN.mp3
-// (gitignored - narration of real book text, never committed or pushed). Run
-// this locally whenever story/book text changes.
+// the ElevenLabs API. Stories save to audio/<storyId>/lineNN.mp3. Books save
+// to book-audio/<bookId>/lineNN.mp3. Run this locally whenever story/book
+// text changes.
 //
 // Usage:
 //   ELEVENLABS_API_KEY=... node scripts/generate-audio.js [id]
@@ -80,8 +79,7 @@ async function synthesize(text, speed) {
 
 async function main() {
   for (const story of items) {
-    // Books' audio goes to a separate, gitignored root - it's a spoken rendition of real
-    // (possibly copyrighted) book text and must never be committed, unlike Stories' audio.
+    // Books' audio goes under book-audio/; stories under audio/.
     const audioRoot = BOOKS.includes(story) ? "book-audio" : "audio";
     const dir = path.join(__dirname, "..", audioRoot, story.id);
     fs.mkdirSync(dir, { recursive: true });
