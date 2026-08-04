@@ -1,4 +1,4 @@
-# Vrijeme za priču
+# Nikola
 
 A tiny app for reading simple, repetitive Croatian stories to a baby. Plain HTML/CSS/JS, no build step, no framework. Meant to run on a phone propped up screen-toward-you as a teleprompter while you face your kid.
 

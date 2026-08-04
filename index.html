@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <title>Vrijeme za priču</title>
+  <title>Nikola</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -15,13 +15,14 @@
 </head>
 <body>
   <div class="home" id="homeScreen">
-    <div class="eyebrow">✨ Vrijeme za priču</div>
-    <h1 id="homeHeading">📖 Priče</h1>
-    <div class="speed-toggle-group" id="sectionTabs">
-      <div id="storiesTabOption" class="speed-option active">Priče</div>
-      <div id="songsTabOption" class="speed-option">Pjesme</div>
-      <div id="booksTabOption" class="speed-option">Knjige</div>
-    </div>
+    <header class="home-header">
+      <div class="eyebrow">✨ Nikola</div>
+      <nav class="home-nav" id="sectionTabs" aria-label="Odjeljci">
+        <button type="button" id="storiesTabOption" class="home-nav-tab active">📖 Priče</button>
+        <button type="button" id="songsTabOption" class="home-nav-tab">🎸 Pjesme</button>
+        <button type="button" id="booksTabOption" class="home-nav-tab">📚 Knjige</button>
+      </nav>
+    </header>
     <div class="story-list" id="storyList"></div>
     <div class="story-list" id="songList" hidden></div>
     <div class="story-list" id="bookList" hidden></div>
@@ -57,13 +58,12 @@
   <div class="player" id="songPreviewScreen" hidden>
     <div class="player-top">
       <a class="back-link" href="index.html" id="songPreviewBackLink">&lsaquo; Natrag</a>
+      <button id="songPlayBtn" class="replay">🎸 Sviraj</button>
     </div>
     <div class="song-preview-body">
-      <div class="eyebrow" id="songPreviewArtist"></div>
       <h1 id="songPreviewTitle"></h1>
       <div class="song-preview-meta" id="songPreviewMeta"></div>
       <div class="song-preview-sections" id="songPreviewSections"></div>
-      <button id="songPlayBtn" class="replay">🎸 Sviraj</button>
     </div>
   </div>
 
@@ -77,9 +77,12 @@
     </div>
     <div class="controls" id="songControls">
       <button id="songPrevBtn" class="icon-btn" aria-label="Prethodni dio">&lsaquo;</button>
-      <button id="speedDownBtn" class="icon-btn" aria-label="Sporije">&minus;</button>
+      <div class="karaoke-speed">
+        <button type="button" id="speedDownBtn" class="icon-btn" aria-label="Sporije">&minus;</button>
+        <span id="karaokeSpeedLabel" class="karaoke-speed-label" aria-live="polite">Brzina 3</span>
+        <button type="button" id="speedUpBtn" class="icon-btn" aria-label="Brže">&plus;</button>
+      </div>
       <button id="songPauseBtn" class="icon-btn" aria-label="Pauza">&#9208;</button>
-      <button id="speedUpBtn" class="icon-btn" aria-label="Brže">&plus;</button>
       <button id="songNextBtn" class="icon-btn" aria-label="Sljedeći dio">&rsaquo;</button>
     </div>
   </div>
@@ -105,14 +108,12 @@
     const pauseBtn = document.getElementById("pauseBtn");
     const normalOption = document.getElementById("normalOption");
     const slowOption = document.getElementById("slowOption");
-    const homeHeading = document.getElementById("homeHeading");
     const songList = document.getElementById("songList");
     const bookList = document.getElementById("bookList");
     const storiesTabOption = document.getElementById("storiesTabOption");
     const songsTabOption = document.getElementById("songsTabOption");
     const booksTabOption = document.getElementById("booksTabOption");
     const songPreviewScreen = document.getElementById("songPreviewScreen");
-    const songPreviewArtist = document.getElementById("songPreviewArtist");
     const songPreviewTitle = document.getElementById("songPreviewTitle");
     const songPreviewMeta = document.getElementById("songPreviewMeta");
     const songPreviewSections = document.getElementById("songPreviewSections");
@@ -148,6 +149,13 @@
     let karaokeSpeed = 30; // px/sec - hands-free auto-scroll rate
     const KARAOKE_MIN_SPEED = 10;
     const KARAOKE_MAX_SPEED = 80;
+    const KARAOKE_SPEED_STEP = 10;
+    const karaokeSpeedLabel = document.getElementById("karaokeSpeedLabel");
+
+    function updateKaraokeSpeedLabel() {
+      const level = Math.round(karaokeSpeed / KARAOKE_SPEED_STEP);
+      karaokeSpeedLabel.textContent = `Brzina ${level}`;
+    }
 
     // Shared by every screen transition so exactly one of the 4 top-level
     // screens is ever visible, and any pending Story/Song timer, running
@@ -235,14 +243,13 @@
 
     function selectSong(id) {
       song = SONGS.find((s) => s.id === id) || SONGS[0];
-      songPreviewArtist.textContent = song.artist;
       songPreviewTitle.textContent = song.title;
-      songPreviewMeta.textContent = `Key of ${song.key}${song.capo ? `, capo ${song.capo}` : ""}`;
+      songPreviewMeta.textContent = `${song.artist} · Key of ${song.key}${song.capo ? `, capo ${song.capo}` : ""}`;
       songPreviewSections.innerHTML = song.sections
         .map((sec) => `
           <div class="song-section-row">
-            <div class="song-section-label">${sec.label}</div>
-            <div class="song-section-chords">${sec.chords.join(" · ")}</div>
+            <span class="song-section-label">${sec.label}</span>
+            <span class="song-section-chords">${sec.chords.join(" · ")}</span>
           </div>
         `)
         .join("");
@@ -375,11 +382,14 @@
     });
 
     document.getElementById("speedUpBtn").addEventListener("click", () => {
-      karaokeSpeed = Math.min(KARAOKE_MAX_SPEED, karaokeSpeed + 10);
+      karaokeSpeed = Math.min(KARAOKE_MAX_SPEED, karaokeSpeed + KARAOKE_SPEED_STEP);
+      updateKaraokeSpeedLabel();
     });
     document.getElementById("speedDownBtn").addEventListener("click", () => {
-      karaokeSpeed = Math.max(KARAOKE_MIN_SPEED, karaokeSpeed - 10);
+      karaokeSpeed = Math.max(KARAOKE_MIN_SPEED, karaokeSpeed - KARAOKE_SPEED_STEP);
+      updateKaraokeSpeedLabel();
     });
+    updateKaraokeSpeedLabel();
 
     songPlayBackLink.addEventListener("click", (e) => {
       e.preventDefault();
@@ -394,8 +404,6 @@
       storyList.hidden = section !== "stories";
       songList.hidden = section !== "songs";
       bookList.hidden = section !== "books";
-      homeHeading.textContent =
-        section === "songs" ? "🎸 Pjesme" : section === "books" ? "📚 Knjige" : "📖 Priče";
     }
 
     storiesTabOption.addEventListener("click", () => showSection("stories"));
@@ -548,8 +556,7 @@
       scheduleAdvance(spokenSeconds * pauseMultiplier * 1000, () => advance("forward"));
     });
 
-    // If the audio file 404s or otherwise fails to load (e.g. the shipped
-    // example book, which has no committed audio), "ended" never fires and
+    // If the audio file 404s or otherwise fails to load, "ended" never fires and
     // playback would hang forever. Treat a load failure like a normal-speed
     // "ended" - a short fixed pause (in place of the missing clip's duration),
     // then advance - so the reader never gets stuck.

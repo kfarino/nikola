@@ -1,15 +1,5 @@
 const BOOKS = [
   {
-    id: "example-book",
-    emoji: "📕",
-    titleHr: "Primjer knjige",
-    titleEn: "Example Book",
-    lines: [
-      { hr: "Ovo je primjer rečenice.", en: "This is an example sentence." },
-      { hr: "Svaki redak može biti cijela stranica, jedna rečenica, ili samo dio rečenice - ti biraš.", en: "Each line can be a whole page, one sentence, or just part of a sentence - you choose." },
-      { hr: "Ovo je treći i posljednji redak ovog primjera.", en: "This is the third and final line of this example." },
-    ],
-  },  {
     id: "babys-belly-button",
     emoji: "👶",
     titleHr: "Gdje je bebin pupak?",

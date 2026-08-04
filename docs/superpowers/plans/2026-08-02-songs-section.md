@@ -223,7 +223,7 @@ In `index.html`, replace:
 
 ```html
   <div class="home" id="homeScreen">
-    <div class="eyebrow">✨ Vrijeme za priču</div>
+    <div class="eyebrow">✨ Nikola</div>
     <h1>📖 Priče</h1>
     <div class="story-list" id="storyList"></div>
   </div>
@@ -233,7 +233,7 @@ with:
 
 ```html
   <div class="home" id="homeScreen">
-    <div class="eyebrow">✨ Vrijeme za priču</div>
+    <div class="eyebrow">✨ Nikola</div>
     <h1 id="homeHeading">📖 Priče</h1>
     <div class="speed-toggle-group" id="sectionTabs">
       <div id="storiesTabOption" class="speed-option active">Priče</div>
