@@ -72,6 +72,37 @@ const STORIES = [
       { hr: "Laku noć, mala zvijezdo.", en: "Goodnight, little star." },
     ],
   },
+  {
+    id: "noisy-dog",
+    emoji: "🐕",
+    titleHr: "Bučni pas",
+    titleEn: "The Noisy Dog",
+    lines: [
+      { hr: "Jedan mali pas volio je praviti buku.", en: "A little dog loved to make noise." },
+      { hr: "Pas je lajao ujutro.", en: "The dog barked in the morning." },
+      { hr: "Pas je lajao navečer.", en: "The dog barked in the evening." },
+      { hr: "Pas je lajao i noću.", en: "The dog barked at night too." },
+      { hr: "Susjedi su rekli: \"Bučni pase, tiho!\"", en: "The neighbors said: \"Noisy dog, quiet!\"" },
+      { hr: "Pas je disao duboko i stišao se.", en: "The dog breathed deeply and got quiet." },
+      { hr: "Sada pas laje samo kad se igra.", en: "Now the dog only barks when he plays." },
+    ],
+  },
+  {
+    id: "rainbow-worm",
+    emoji: "🪱",
+    titleHr: "Dugin crvić",
+    titleEn: "The Rainbow Worm",
+    lines: [
+      { hr: "Jedan mali crvić živio je u vrtu.", en: "A little worm lived in the garden." },
+      { hr: "Nakon kiše, crvić je ugledao dugu.", en: "After the rain, the worm saw a rainbow." },
+      { hr: "Crvić je poželio biti šaren kao duga.", en: "The worm wished to be colorful like the rainbow." },
+      { hr: "Sunce je zagrijalo crvićevu kožu.", en: "The sun warmed the worm's skin." },
+      { hr: "Crvić je zasjao crvenom, narančastom i žutom.", en: "The worm glowed red, orange, and yellow." },
+      { hr: "Zatim zelenom, plavom i ljubičastom.", en: "Then green, blue, and purple." },
+      { hr: "Dugin crvić smiješio se cijelom vrtu.", en: "The rainbow worm smiled at the whole garden." },
+      { hr: "Laku noć, dugin crviću.", en: "Goodnight, rainbow worm." },
+    ],
+  },
 ];
 
 // Words that must lead into the next clause, never trail the previous one
