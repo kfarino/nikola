@@ -258,6 +258,18 @@ body {
   gap: 0.35rem;
 }
 
+.karaoke-top-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.karaoke-top-controls > .icon-btn {
+  width: 2.6rem;
+  height: 2.6rem;
+  font-size: 1.25rem;
+}
+
 .karaoke-speed .icon-btn {
   width: 2.6rem;
   height: 2.6rem;
@@ -413,6 +425,7 @@ button.replay:active {
 
 .chord-widget {
   align-self: center;
+  flex-shrink: 0;
   background: var(--bg-elevated-2);
   color: var(--accent-on-dim);
   font-family: var(--font-display);
@@ -425,9 +438,31 @@ button.replay:active {
   margin: 0 0 0.5rem;
 }
 
+/* Lock the performance screen to the viewport so only the lyric pane scrolls;
+   the top bar + chords stay put as sticky chrome above it. */
+#songPlayScreen {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+#songPlayScreen .player-top {
+  flex-shrink: 0;
+}
+
+#songPlayScreen .controls {
+  flex-shrink: 0;
+}
+
 .karaoke-viewport {
   flex: 1;
-  overflow: hidden;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   position: relative;
 }
 

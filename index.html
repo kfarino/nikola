@@ -70,10 +70,13 @@
   <div class="player" id="songPlayScreen" hidden>
     <div class="player-top">
       <a class="back-link" href="index.html" id="songPlayBackLink">&lsaquo; Natrag</a>
-      <div class="karaoke-speed">
-        <button type="button" id="speedDownBtn" class="icon-btn" aria-label="Sporije">&minus;</button>
-        <span id="karaokeSpeedLabel" class="karaoke-speed-label" aria-live="polite">Brzina 3</span>
-        <button type="button" id="speedUpBtn" class="icon-btn" aria-label="Brže">&plus;</button>
+      <div class="karaoke-top-controls">
+        <button type="button" id="songPauseBtn" class="icon-btn" aria-label="Pauza">&#9208;</button>
+        <div class="karaoke-speed">
+          <button type="button" id="speedDownBtn" class="icon-btn" aria-label="Sporije">&minus;</button>
+          <span id="karaokeSpeedLabel" class="karaoke-speed-label" aria-live="polite">Brzina 1</span>
+          <button type="button" id="speedUpBtn" class="icon-btn" aria-label="Brže">&plus;</button>
+        </div>
       </div>
     </div>
     <div class="chord-widget" id="chordWidget"></div>
@@ -82,7 +85,6 @@
     </div>
     <div class="controls" id="songControls">
       <button id="songPrevBtn" class="icon-btn" aria-label="Prethodni dio">&lsaquo;</button>
-      <button id="songPauseBtn" class="icon-btn" aria-label="Pauza">&#9208;</button>
       <button id="songNextBtn" class="icon-btn" aria-label="Sljedeći dio">&rsaquo;</button>
     </div>
   </div>
@@ -142,19 +144,64 @@
 
     let songPaused = false;
     let karaokeLineOffsets = []; // [{ el, top, sectionIdx }] per rendered lyric line, in play order
-    let karaokeTrackHeight = 0;
-    let karaokeScrollPos = 0; // px scrolled so far
+    let karaokeMaxScroll = 0;
     let karaokeRafId = null;
     let karaokeLastFrameTime = 0;
-    let karaokeSpeed = 30; // px/sec - hands-free auto-scroll rate
-    const KARAOKE_MIN_SPEED = 10;
+    let karaokeSpeed = 5; // px/sec - hands-free auto-scroll rate (default = slowest)
+    const KARAOKE_MIN_SPEED = 5;
     const KARAOKE_MAX_SPEED = 80;
-    const KARAOKE_SPEED_STEP = 10;
+    const KARAOKE_SPEED_STEP = 5;
     const karaokeSpeedLabel = document.getElementById("karaokeSpeedLabel");
+    // True while a finger/mouse is actively scrolling the lyric pane — auto-scroll
+    // yields so it doesn't fight the gesture (including iOS momentum), then resumes.
+    let karaokeDragging = false;
+    let karaokeResumeTimer = null;
 
     function updateKaraokeSpeedLabel() {
       const level = Math.round(karaokeSpeed / KARAOKE_SPEED_STEP);
       karaokeSpeedLabel.textContent = `Brzina ${level}`;
+    }
+
+    function setSongPaused(paused) {
+      songPaused = paused;
+      songPauseBtn.textContent = paused ? "▶" : "⏸";
+      if (paused) {
+        stopKaraokeScroll();
+      } else {
+        startKaraokeScroll();
+      }
+    }
+
+    function karaokeScrollPos() {
+      return karaokeViewport.scrollTop;
+    }
+
+    function setKaraokeScrollPos(pos) {
+      const max = Math.max(0, karaokeMaxScroll);
+      karaokeViewport.scrollTop = Math.max(0, Math.min(max, pos));
+      updateChordWidget();
+    }
+
+    function measureKaraokeScroll() {
+      karaokeMaxScroll = Math.max(0, karaokeViewport.scrollHeight - karaokeViewport.clientHeight);
+      karaokeLineOffsets.forEach((entry) => {
+        entry.top = entry.el.offsetTop;
+      });
+    }
+
+    function beginKaraokeDrag() {
+      clearTimeout(karaokeResumeTimer);
+      karaokeDragging = true;
+    }
+
+    function scheduleKaraokeResume() {
+      clearTimeout(karaokeResumeTimer);
+      // Wait out inertial scrolling before auto-advance takes over again.
+      karaokeResumeTimer = setTimeout(() => {
+        karaokeDragging = false;
+        karaokeLastFrameTime = 0;
+        updateChordWidget();
+      }, 180);
     }
 
     // Shared by every screen transition so exactly one of the 4 top-level
@@ -278,10 +325,7 @@
           karaokeLineOffsets.push({ el: div, sectionIdx: si, top: 0 });
         });
       });
-      karaokeLineOffsets.forEach((entry) => {
-        entry.top = entry.el.offsetTop;
-      });
-      karaokeTrackHeight = karaokeTrack.scrollHeight;
+      measureKaraokeScroll();
     }
 
     // The section whose chords belong in the corner widget right now: the
@@ -289,7 +333,7 @@
     // vertical center, i.e. the line currently at the "read position".
     function currentSectionIdx() {
       if (karaokeLineOffsets.length === 0) return 0;
-      const readPos = karaokeScrollPos + karaokeViewport.clientHeight / 2;
+      const readPos = karaokeScrollPos() + karaokeViewport.clientHeight / 2;
       let current = karaokeLineOffsets[0];
       for (const entry of karaokeLineOffsets) {
         if (entry.top <= readPos) current = entry;
@@ -309,12 +353,14 @@
       const deltaSec = (now - karaokeLastFrameTime) / 1000;
       karaokeLastFrameTime = now;
 
-      karaokeScrollPos += karaokeSpeed * deltaSec;
-      if (karaokeTrackHeight > 0 && karaokeScrollPos >= karaokeTrackHeight) {
-        karaokeScrollPos = 0; // looped back to the start
+      // Finger scroll owns the pane; auto-scroll resumes after release.
+      if (!karaokeDragging) {
+        let next = karaokeScrollPos() + karaokeSpeed * deltaSec;
+        if (karaokeMaxScroll > 0 && next >= karaokeMaxScroll) {
+          next = 0; // looped back to the start
+        }
+        setKaraokeScrollPos(next);
       }
-      karaokeTrack.style.transform = `translateY(${-karaokeScrollPos}px)`;
-      updateChordWidget();
 
       karaokeRafId = requestAnimationFrame(karaokeFrame);
     }
@@ -340,9 +386,7 @@
         idx = direction === "forward" ? (idx + 1) % total : (idx - 1 + total) % total;
         const firstLine = karaokeLineOffsets.find((entry) => entry.sectionIdx === idx);
         if (firstLine) {
-          karaokeScrollPos = Math.max(0, firstLine.top - karaokeViewport.clientHeight / 2);
-          karaokeTrack.style.transform = `translateY(${-karaokeScrollPos}px)`;
-          updateChordWidget();
+          setKaraokeScrollPos(Math.max(0, firstLine.top - karaokeViewport.clientHeight / 2));
           return;
         }
       }
@@ -352,17 +396,36 @@
       if (pushHistory) {
         history.pushState({ song: song.id, play: true }, "", `index.html?song=${song.id}&play=1`);
       }
-      songPaused = false;
-      songPauseBtn.textContent = "⏸";
+      clearTimeout(karaokeResumeTimer);
+      karaokeDragging = false;
       showScreen(songPlayScreen);
       renderKaraokeTrack();
-      karaokeScrollPos = 0;
-      karaokeTrack.style.transform = "translateY(0px)";
-      updateChordWidget();
-      startKaraokeScroll();
+      // Remeasure after the screen is shown and laid out — hidden screens
+      // report a 0-height viewport, which would lock scrolling.
+      requestAnimationFrame(() => {
+        measureKaraokeScroll();
+        setKaraokeScrollPos(0);
+        setSongPaused(false);
+      });
     }
 
     songPlayBtn.addEventListener("click", () => enterPerformance());
+
+    // Native lyric-pane scrolling (finger or wheel). Auto-scroll yields for
+    // the gesture + momentum, then resumes if the user hasn't hit pause.
+    karaokeViewport.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      beginKaraokeDrag();
+    });
+    karaokeViewport.addEventListener("pointerup", scheduleKaraokeResume);
+    karaokeViewport.addEventListener("pointercancel", scheduleKaraokeResume);
+    karaokeViewport.addEventListener("scroll", () => {
+      updateChordWidget();
+      if (karaokeDragging) scheduleKaraokeResume();
+    }, { passive: true });
+    window.addEventListener("resize", () => {
+      if (!songPlayScreen.hidden) measureKaraokeScroll();
+    });
 
     document.getElementById("songPrevBtn").addEventListener("click", () => {
       jumpToSection("backward");
@@ -372,13 +435,7 @@
     });
 
     songPauseBtn.addEventListener("click", () => {
-      songPaused = !songPaused;
-      songPauseBtn.textContent = songPaused ? "▶" : "⏸";
-      if (songPaused) {
-        stopKaraokeScroll();
-      } else {
-        startKaraokeScroll();
-      }
+      setSongPaused(!songPaused);
     });
 
     document.getElementById("speedUpBtn").addEventListener("click", () => {
