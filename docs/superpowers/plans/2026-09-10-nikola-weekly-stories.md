@@ -93,6 +93,8 @@ Tara-leads language: *pokazuje, vodi, penje se, udara, kaže hajde*. Nikola *ide
 - [ ] `audio.src = line.audio`; pause multiplier `1` after each phrase
 - [ ] Home eyebrow `✨ Nikola · ${STORY_DATE_HR}`
 - [ ] Under `#storyList`, muted hint `Slušaj. U pauzi ponovi.`
+- [ ] Fourth tab **Kviz**: EN→HR 5 questions, pass 4/5; localStorage `nikola-learn`; hold previous week’s card until passed
+- [ ] `Kraj priče` offers Kviz (stories only); books still auto-return home
 - [ ] Card meta: `focusHr · N fraza`
 - [ ] Books still use this player (normal speed)
 

@@ -101,6 +101,18 @@ Told in present tense as if it is happening now.
 
 Emma and Marco can appear in the birthday and krštenje lines (*teta Emma donosi tortu*, *barba Marco sjedi za stolom*) without needing their own adventures.
 
+## Quiz (gate before a story is replaced)
+
+A story does **not** rotate on Monday until you **pass its quiz**. That is the Sunday test from the learning loop, made real.
+
+- **Kviz** is a fourth home tab.
+- Finish the story once (`Kraj priče`) before that quiz unlocks.
+- Five questions: English gloss shown, pick the matching Croatian chunk (three choices from that story). This is recall in the useful direction (EN → HR), not recognition of a line you are staring at.
+- Pass: **4 / 5**. Fail: try again; the card stays.
+- The Monday job still publishes a new week, but the app **keeps last week’s text and audio for any slot whose quiz is not passed** (localStorage). Passed slots show the new story. Unpassed slots do not.
+
+So replacement is per card, not all-or-nothing. Tara can move on while baka’s story waits.
+
 ## Phrase rules
 
 - Croatian **5 or 6 words** (punctuation does not count)
@@ -119,7 +131,8 @@ Emma and Marco can appear in the birthday and krštenje lines (*teta Emma donosi
 - Drop slow-half MP3s and `splitSentence` for stories.
 - After a clip: pause ≈ **1× duration**, then next phrase. That pause is the parent’s repetition slot, not dead air.
 - Home eyebrow: `✨ Nikola · tjedan 8. rujna`
-- Under the story list, one muted line: `Slušaj. U pauzi ponovi.` so the loop is on the phone, not only in the README.
+- Under the story list, one muted line: `Slušaj. U pauzi ponovi.`
+- Home nav is four tabs: Priče, Pjesme, Knjige, Kviz.
 
 ## Weekly job
 

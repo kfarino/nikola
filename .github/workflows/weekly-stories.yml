@@ -1,0 +1,43 @@
+name: Weekly stories
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-stories
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate this week's stories
+        run: node scripts/update-weekly-stories.js
+
+      - name: Validate present-tense chunks
+        run: node scripts/validate-stories.js --bank
+
+      - name: Generate story audio
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: node scripts/generate-audio.js --stories --force
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stories.js audio
+          if git diff --staged --quiet; then
+            echo "No story or audio changes."
+            exit 0
+          fi
+          DATE=$(node -e "console.log(require('./stories.js').STORY_DATE)")
+          git commit -m "Weekly Nikola stories ${DATE}"
+          git push
