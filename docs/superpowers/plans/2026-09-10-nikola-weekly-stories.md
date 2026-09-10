@@ -1,6 +1,8 @@
 # Weekly Nikola stories — implementation plan
 
-**Goal:** Four present-tense family stories a week (10 lines of 5–6 word chunks each), normal-speed audio, echo pause, regenerated every Monday.
+**Goal:** Four present-tense family stories a week that the parent can actually acquire: 10 lines of 5–6 word chunks, echo pause, same set all week, core verbs recycled, regenerated every Monday.
+
+Each story’s `focusHr` is the noticing target. The weekly generator must fail if the four stories together omit any of *ići / vidjeti / htjeti / dati / kaže*.
 
 **Architecture:** Keep the existing static app. A small `scripts/story-bank.js` holds a few variants per slot. `scripts/update-weekly-stories.js` writes `stories.js` for the current Zagreb week (`s-sada` is calendar-aware). GitHub Actions regenerates audio with ElevenLabs and commits. The player drops Polako and treats each line as one phrase.
 
@@ -65,6 +67,8 @@ Tara-leads language: *pokazuje, vodi, penje se, udara, kaže hajde*. Nikola *ide
 - [ ] Write `STORY_DATE` (that Monday), `STORY_DATE_HR` (`tjedan 8. rujna 2026.`), `STORIES`
 - [ ] Audio paths only: `audio/<id>/lineNN.mp3` — no slow halves
 - [ ] Validator: exactly 4 stories, 10 lines, present tense, 5–6 words, no Polako fields
+- [ ] Validator: concatenated week text contains *ide/idu/ići*, *vidi/vidjeti*, *hoće/htjeti*, *daje/dati*, *kaže* (core verb recycling)
+- [ ] Each story has a concrete `focusHr` (verb or case chunk, not a title echo)
 
 ---
 
@@ -88,6 +92,7 @@ Tara-leads language: *pokazuje, vodi, penje se, udara, kaže hajde*. Nikola *ide
 - [ ] Remove Normalno / Polako toggle and all `slowMode` / half-clip logic
 - [ ] `audio.src = line.audio`; pause multiplier `1` after each phrase
 - [ ] Home eyebrow `✨ Nikola · ${STORY_DATE_HR}`
+- [ ] Under `#storyList`, muted hint `Slušaj. U pauzi ponovi.`
 - [ ] Card meta: `focusHr · N fraza`
 - [ ] Books still use this player (normal speed)
 
@@ -111,7 +116,8 @@ Tara-leads language: *pokazuje, vodi, penje se, udara, kaže hajde*. Nikola *ide
 - Modify: `README.md`
 - Delete: `audio/turtle`, `audio/rabbit`, `audio/squirrel`, `audio/penguin`, `audio/star`, `audio/noisy-dog`, `audio/rainbow-worm`
 
-- [ ] Document weekly cadence, four-story limit, present tense, how to use (listen, glance at English only if needed, say the chunk in the pause)
+- [ ] Document the night loop: look at Croatian → hear clip → say it in the pause; English is a gloss; same four stories all week
+- [ ] Document honest limit: 3rd-person narration, not *ja/ti* conversation
 - [ ] Document secret `ELEVENLABS_API_KEY` and Actions write permission
 - [ ] Stories are generated from the bank — do not edit `stories.js` by hand
 - [ ] Remove animal MP3s so old ids cannot play
