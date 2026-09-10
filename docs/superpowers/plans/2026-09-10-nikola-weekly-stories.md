@@ -9,7 +9,7 @@
 ## Global constraints
 
 - No build step, no framework.
-- Present tense only; 5–6 Croatian words; 10 lines; Tara is a one-year-old cousin.
+- Present tense only; 5–6 Croatian words; 10 lines; Tara is two: she walks, runs, and talks.
 - Baka stories are “she lives with us this month,” not a trip to her house.
 - Teta Emma and barba Marco appear only as guests in birthday/krštenje lines.
 - Do not touch real book/song text. Do not invent Boston names.
@@ -39,12 +39,12 @@ Four slots, **few variants**, 10 lines each. Present tense even for the Boston t
 
 | Slot | Variants |
 | --- | --- |
-| `s-tara` | 3: park (Tara sits/crawls) · ku-ku / ball · dancing (Tara bounces, claps) |
+| `s-tara` | 3: park (they walk and run) · ku-ku / ball · dancing. Tara talks in short lines (*kaže “još”*, *zove Nikolu*). |
 | `s-baka` | 4: morning in this house · market for food · cooking together · opera |
 | `s-odlazak` | 3 mama (museum, neighborhood, both-in-one walk) + 3 tata (bike, ocean/surf, sports). Generator uses mama set on odd weeks, tata set on even weeks. |
 | `s-sada` | Calendar, not random: krštenje if that is still next; else Boston plane / dad’s relatives / ocean beach until October; **mama’s birthday in October**; **baka’s birthday in November**; **Tara’s birthday in December**. Birthday stories can mention teta Emma and barba Marco as guests. |
 
-Tara-as-baby language: *sjedi, puzi, plješće, smije se, nosi Taru*. Never peer sports.
+Tara-at-two language: *hoda, trči, govori, zove, kaže, pleše*. She can run after a ball. Still no solo bike or tata-level sports.
 
 - [ ] Write the bank
 - [ ] Generator (Task 3) must fail the bank on any bad line

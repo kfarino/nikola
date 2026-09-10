@@ -17,14 +17,14 @@ No single method wins. This app already sits in the best seat: you speak Croatia
 | Shadowing / echo | Imitating native-speed speech after a short model. | **Normal speed only** (no Polako). After each clip, wait about one clip-length, then auto-advance. |
 | Narrow reading | Same people and places, new details — vocabulary sticks. | Four cards. Same text all week. |
 | Weekly spacing | A little every day beats a binge; too many stories, or a new set every day, fights memorization. | Four stories Monday–Sunday. New set + new audio each Monday. |
-| Personal relevance | Names and routines you live beat textbook people. | Baka staying for a month, Tara the baby cousin, mama/tata outings, and whatever is actually on the calendar (Boston, krštenje, birthdays). |
+| Personal relevance | Names and routines you live beat textbook people. | Baka staying for a month, Tara (2, walks and talks), mama/tata outings, and whatever is actually on the calendar (Boston, krštenje, birthdays). |
 | Output from day one | Speaking exposes gaps input hides. | Reading aloud *is* the speaking practice. |
 
 Not adding: flashcards, a second study mode, slow audio, grammar lectures, mixing past tense, or a home screen full of cards you will not reread.
 
 ## Four stories (not seven)
 
-Tara is Nikola’s **one-year-old cousin**, not a same-age playmate. She crawls, sits, claps, is carried, giggles, dances in place. She does not kick a football, ride a bike, or climb a slide as an equal.
+Tara is Nikola’s **two-year-old cousin**. She **walks, runs, and talks** — park, games, and dancing are real play, not a baby being carried. She says short things (*Tara kaže “još”*, *Tara zove Nikolu*). She is still little: no solo bike, no peer sports with tata.
 
 Baka is **staying with the family for a month**, so her stories are life in *this* house (*baka kuha u kuhinji*, *baka sjedi s Nikolom*), not a visit to hers.
 
@@ -36,7 +36,7 @@ Four stable `id`s (audio folders stay put). Each week each slot has **one** 10-l
 
 | id | Card | What it is |
 | --- | --- | --- |
-| `s-tara` | Tara | Park · ku-ku / rolling a ball · dancing. Tara as a 1-year-old. |
+| `s-tara` | Tara | Park (they run) · games (ku-ku, ball) · dancing. Tara walks, runs, and talks. |
 | `s-baka` | Baka (living here) | Mornings at home · market for food · cooking together · opera. |
 | `s-odlazak` | Mama *or* tata | One outing, not both. Odd weeks: mama (museum / neighborhood walk). Even weeks: tata (bike / beach-surf / sports). |
 | `s-sada` | This season | **Calendar picks the story**, not a random shuffle. |
