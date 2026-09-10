@@ -115,8 +115,17 @@ body {
   background: var(--bg-elevated-2);
 }
 
+button.story-card {
+  font: inherit;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
 .story-card.locked {
   opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .story-card.locked:active {

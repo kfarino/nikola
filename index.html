@@ -171,6 +171,13 @@
     let quizIdx = 0;
     let quizScore = 0;
     let quizLocked = false;
+    let currentSection = "stories";
+
+    function canTakeQuiz(s) {
+      const learn = loadLearn();
+      const key = slotKey(s.id, storyWeek(s));
+      return !!(learn.completed[key] || learn.passed[key]);
+    }
 
     function loadLearn() {
       try {
@@ -329,11 +336,15 @@
         const key = slotKey(s.id, storyWeek(s));
         const passed = !!learn.passed[key];
         const completed = !!learn.completed[key];
-        const locked = !completed && !passed;
-        const a = document.createElement("a");
+        const locked = !canTakeQuiz(s);
+        const a = document.createElement(locked ? "button" : "a");
         a.className = locked ? "story-card locked" : "story-card";
-        a.href = locked ? "index.html" : `index.html?quiz=${s.id}`;
-        if (locked) a.setAttribute("aria-disabled", "true");
+        if (locked) {
+          a.type = "button";
+          a.setAttribute("aria-disabled", "true");
+        } else {
+          a.href = `index.html?quiz=${s.id}`;
+        }
         let meta = "Pročitaj priču prvo";
         if (passed) meta = "Položeno — priča se smije zamijeniti";
         else if (completed) meta = "5 pitanja · treba 4 točna";
@@ -568,6 +579,7 @@
     });
 
     function showSection(section) {
+      currentSection = section;
       storiesTabOption.classList.toggle("active", section === "stories");
       songsTabOption.classList.toggle("active", section === "songs");
       booksTabOption.classList.toggle("active", section === "books");
@@ -603,6 +615,7 @@
       renderHome();
       renderQuizList();
       showScreen(homeScreen);
+      showSection(currentSection);
     }
 
     function selectContent(id, list) {
@@ -697,10 +710,8 @@
     function startQuiz(id) {
       quizStory = displayedStories().find((s) => s.id === id);
       if (!quizStory) return;
-      const learn = loadLearn();
-      const key = slotKey(quizStory.id, storyWeek(quizStory));
-      if (!learn.completed[key] && !learn.passed[key]) {
-        showSection("quiz");
+      if (!canTakeQuiz(quizStory)) {
+        currentSection = "quiz";
         showHome();
         return;
       }
