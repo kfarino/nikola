@@ -11,10 +11,10 @@ const WEEK = {
       "id": "s-tara",
       "emoji": "🛝",
       "weekDate": "2026-09-07",
-      "titleHr": "Tara pokazuje ples",
-      "titleEn": "Tara shows a dance",
-      "focusHr": "plesati",
-      "focusEn": "to dance",
+      "titleHr": "Tara uči ples",
+      "titleEn": "Tara teaches him to dance",
+      "focusHr": "učiti",
+      "focusEn": "to teach",
       "lines": [
         {
           "hr": "Tara pali glazbu u sobi.",
@@ -27,28 +27,28 @@ const WEEK = {
           "audio": "audio/s-tara/2026-09-07/line02.mp3"
         },
         {
+          "hr": "Tara uči ga plesati sad.",
+          "en": "Tara teaches him to dance now.",
+          "audio": "audio/s-tara/2026-09-07/line03.mp3"
+        },
+        {
           "hr": "Ona pokazuje mu jedan korak.",
           "en": "She shows him one step.",
-          "audio": "audio/s-tara/2026-09-07/line03.mp3"
+          "audio": "audio/s-tara/2026-09-07/line04.mp3"
         },
         {
           "hr": "Nikola ponavlja taj korak polako.",
           "en": "Nikola repeats that step slowly.",
-          "audio": "audio/s-tara/2026-09-07/line04.mp3"
+          "audio": "audio/s-tara/2026-09-07/line05.mp3"
         },
         {
-          "hr": "Tara pleše brže pred njim.",
-          "en": "Tara dances faster in front of him.",
-          "audio": "audio/s-tara/2026-09-07/line05.mp3"
+          "hr": "Tara pleše polako pred njim.",
+          "en": "Tara dances slowly in front of him.",
+          "audio": "audio/s-tara/2026-09-07/line06.mp3"
         },
         {
           "hr": "Nikola pleše za njom skupa.",
           "en": "Nikola dances along with her.",
-          "audio": "audio/s-tara/2026-09-07/line06.mp3"
-        },
-        {
-          "hr": "Tara hoće još jednu pjesmu.",
-          "en": "Tara wants one more song.",
           "audio": "audio/s-tara/2026-09-07/line07.mp3"
         },
         {
@@ -57,13 +57,13 @@ const WEEK = {
           "audio": "audio/s-tara/2026-09-07/line08.mp3"
         },
         {
-          "hr": "Oni se vrte po sobi.",
-          "en": "They spin around the room.",
+          "hr": "Nikola hoće još jedan korak.",
+          "en": "Nikola wants one more step.",
           "audio": "audio/s-tara/2026-09-07/line09.mp3"
         },
         {
-          "hr": "Tara vodi ga u smijeh.",
-          "en": "Tara leads him into laughter.",
+          "hr": "Oni plešu skupa po sobi.",
+          "en": "They dance together around the room.",
           "audio": "audio/s-tara/2026-09-07/line10.mp3"
         }
       ]
@@ -200,13 +200,13 @@ const WEEK = {
       "focusEn": "to go by plane",
       "lines": [
         {
-          "hr": "Nikola i tata idu u avion.",
-          "en": "Nikola and tata go onto the plane.",
+          "hr": "Nikola ide s mamom i tatom.",
+          "en": "Nikola goes with mama and tata.",
           "audio": "audio/s-sada/2026-09-07/line01.mp3"
         },
         {
-          "hr": "Nikola vidi velika krila tamo.",
-          "en": "Nikola sees the big wings there.",
+          "hr": "Mama i tata sjede uz njega.",
+          "en": "Mama and tata sit next to him.",
           "audio": "audio/s-sada/2026-09-07/line02.mp3"
         },
         {
@@ -220,8 +220,8 @@ const WEEK = {
           "audio": "audio/s-sada/2026-09-07/line04.mp3"
         },
         {
-          "hr": "Tata daje mu mali jastuk.",
-          "en": "Tata gives him a little pillow.",
+          "hr": "Mama daje mu mali jastuk.",
+          "en": "Mama gives him a little pillow.",
           "audio": "audio/s-sada/2026-09-07/line05.mp3"
         },
         {
@@ -240,8 +240,8 @@ const WEEK = {
           "audio": "audio/s-sada/2026-09-07/line08.mp3"
         },
         {
-          "hr": "Tata drži ga za ruku.",
-          "en": "Tata holds him by the hand.",
+          "hr": "Oni drže ga za ruku.",
+          "en": "They hold him by the hand.",
           "audio": "audio/s-sada/2026-09-07/line09.mp3"
         },
         {
