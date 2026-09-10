@@ -16,25 +16,24 @@
 <body>
   <div class="home" id="homeScreen">
     <header class="home-header">
-      <div class="eyebrow">✨ Nikola</div>
+      <div class="eyebrow" id="homeEyebrow">✨ Nikola</div>
       <nav class="home-nav" id="sectionTabs" aria-label="Odjeljci">
         <button type="button" id="storiesTabOption" class="home-nav-tab active">📖 Priče</button>
         <button type="button" id="songsTabOption" class="home-nav-tab">🎸 Pjesme</button>
         <button type="button" id="booksTabOption" class="home-nav-tab">📚 Knjige</button>
+        <button type="button" id="quizTabOption" class="home-nav-tab">✅ Kviz</button>
       </nav>
     </header>
+    <p class="learn-hint" id="learnHint">Slušaj. U pauzi ponovi.</p>
     <div class="story-list" id="storyList"></div>
     <div class="story-list" id="songList" hidden></div>
     <div class="story-list" id="bookList" hidden></div>
+    <div class="story-list" id="quizList" hidden></div>
   </div>
 
   <div class="player" id="playerScreen" hidden>
     <div class="player-top" id="playerTop">
       <a class="back-link" href="index.html" id="backLink">&lsaquo; Natrag</a>
-      <div class="speed-toggle-group">
-        <div id="normalOption" class="speed-option active">Normalno</div>
-        <div id="slowOption" class="speed-option">Polako</div>
-      </div>
     </div>
 
     <div class="line-area" id="lineArea">
@@ -52,6 +51,7 @@
     <div class="done" id="doneScreen" hidden>
       <div class="line-hr">Kraj priče</div>
       <div class="line-en">The end</div>
+      <button type="button" id="doneQuizBtn" class="replay">✅ Kviz</button>
     </div>
   </div>
 
@@ -89,11 +89,25 @@
     </div>
   </div>
 
+  <div class="player" id="quizScreen" hidden>
+    <div class="player-top">
+      <a class="back-link" href="index.html" id="quizBackLink">&lsaquo; Natrag</a>
+      <div id="quizProgress" class="quiz-progress"></div>
+    </div>
+    <div class="quiz-body">
+      <div class="quiz-prompt-label">Kako se kaže</div>
+      <div class="line-en" id="quizPrompt"></div>
+      <div class="quiz-choices" id="quizChoices"></div>
+      <div class="quiz-status" id="quizStatus"></div>
+    </div>
+  </div>
+
   <audio id="audio" preload="auto" playsinline></audio>
 
   <script src="stories.js"></script>
   <script src="songs.js"></script>
   <script src="books.js"></script>
+  <script src="learn-gate.js"></script>
   <script>
     const homeScreen = document.getElementById("homeScreen");
     const playerScreen = document.getElementById("playerScreen");
@@ -108,13 +122,21 @@
     const lineEn = document.getElementById("lineEn");
     const replayBtn = document.getElementById("replayBtn");
     const pauseBtn = document.getElementById("pauseBtn");
-    const normalOption = document.getElementById("normalOption");
-    const slowOption = document.getElementById("slowOption");
     const songList = document.getElementById("songList");
     const bookList = document.getElementById("bookList");
     const storiesTabOption = document.getElementById("storiesTabOption");
     const songsTabOption = document.getElementById("songsTabOption");
     const booksTabOption = document.getElementById("booksTabOption");
+    const quizTabOption = document.getElementById("quizTabOption");
+    const quizList = document.getElementById("quizList");
+    const learnHint = document.getElementById("learnHint");
+    const quizScreen = document.getElementById("quizScreen");
+    const quizBackLink = document.getElementById("quizBackLink");
+    const quizProgress = document.getElementById("quizProgress");
+    const quizPrompt = document.getElementById("quizPrompt");
+    const quizChoices = document.getElementById("quizChoices");
+    const quizStatus = document.getElementById("quizStatus");
+    const doneQuizBtn = document.getElementById("doneQuizBtn");
     const songPreviewScreen = document.getElementById("songPreviewScreen");
     const songPreviewTitle = document.getElementById("songPreviewTitle");
     const songPreviewMeta = document.getElementById("songPreviewMeta");
@@ -132,15 +154,75 @@
     let contentKind = null; // "story" | "book" - which list `story` came from
     let song = null;
     let idx = 0;
-    let slowMode = false;
-    let playingHalf = "a"; // which half is loaded when slowMode is on: "a" or "b"
-    let repeat = 1; // which play-through (1 or 2) of the current half, slow mode only
-    let pendingTimer = null; // the scheduled auto-advance/half-flip/return-home timeout, if any
+    let pendingTimer = null; // the scheduled auto-advance/return-home timeout, if any
     let pendingAction = null; // what pendingTimer will do when it fires - resumed immediately on unpause
     let isPaused = false;
     let pausedState = null; // "playing" | "waiting" - what we were doing when paused
-    const SLOW_PAUSE_MULT = 1; // pause after each half, in slow mode
-    const NORMAL_PAUSE_MULT = 1.5; // pause after the full line, in normal mode
+    // After each 5–6 word chunk, wait about one clip so the parent can echo it.
+    const PHRASE_PAUSE_MULT = 1;
+    const LEARN_KEY = "nikola-learn";
+    const QUIZ_PASS = 4;
+    const QUIZ_N = 5;
+    const previousStories = typeof PREVIOUS_STORIES !== "undefined" && PREVIOUS_STORIES ? PREVIOUS_STORIES : [];
+    const previousDate = typeof PREVIOUS_DATE !== "undefined" ? PREVIOUS_DATE : null;
+
+    let quizStory = null;
+    let quizItems = [];
+    let quizIdx = 0;
+    let quizScore = 0;
+    let quizLocked = false;
+    let currentSection = "stories";
+
+    function canTakeQuiz(s) {
+      const learn = loadLearn();
+      const key = slotKey(s.id, storyWeek(s));
+      return !!(learn.completed[key] || learn.passed[key]);
+    }
+
+    function loadLearn() {
+      try {
+        const data = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}");
+        return { completed: data.completed || {}, passed: data.passed || {} };
+      } catch {
+        return { completed: {}, passed: {} };
+      }
+    }
+    function saveLearn(data) {
+      localStorage.setItem(LEARN_KEY, JSON.stringify(data));
+    }
+    function storyWeek(s) {
+      return s.weekDate || STORY_DATE;
+    }
+    function displayedStories() {
+      return displayedStoriesFor(STORIES, previousStories, previousDate, loadLearn().passed);
+    }
+    function shuffle(list) {
+      const a = list.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = a[i];
+        a[i] = a[j];
+        a[j] = tmp;
+      }
+      return a;
+    }
+    function buildQuiz(s) {
+      return shuffle(s.lines).slice(0, QUIZ_N).map((line) => {
+        const others = s.lines.filter((l) => l.hr !== line.hr);
+        const distractors = shuffle(others).slice(0, 2).map((l) => l.hr);
+        return { en: line.en, correct: line.hr, choices: shuffle([line.hr].concat(distractors)) };
+      });
+    }
+    function markCompleted(s) {
+      const learn = loadLearn();
+      learn.completed[slotKey(s.id, storyWeek(s))] = true;
+      saveLearn(learn);
+    }
+    function markPassed(s) {
+      const learn = loadLearn();
+      learn.passed[slotKey(s.id, storyWeek(s))] = true;
+      saveLearn(learn);
+    }
 
     let songPaused = false;
     let karaokeLineOffsets = []; // [{ el, top, sectionIdx }] per rendered lyric line, in play order
@@ -211,14 +293,22 @@
       clearTimeout(pendingTimer);
       stopKaraokeScroll();
       audio.pause();
-      [homeScreen, playerScreen, songPreviewScreen, songPlayScreen].forEach((s) => {
+      [homeScreen, playerScreen, songPreviewScreen, songPlayScreen, quizScreen].forEach((s) => {
         s.hidden = s !== el;
       });
     }
 
     function renderHome() {
       storyList.innerHTML = "";
-      STORIES.forEach((s) => {
+      displayedStories().forEach((s) => {
+        const learn = loadLearn();
+        const key = slotKey(s.id, storyWeek(s));
+        const held = previousDate && s.weekDate === previousDate;
+        const metaBits = [];
+        if (s.focusHr) metaBits.push(s.focusHr);
+        metaBits.push(`${s.lines.length} fraza`);
+        if (learn.passed[key]) metaBits.push("kviz položen");
+        else if (held) metaBits.push("čeka kviz");
         const a = document.createElement("a");
         a.className = "story-card";
         a.href = `index.html?story=${s.id}`;
@@ -227,18 +317,52 @@
           <div class="text">
             <div class="hr">${s.titleHr}</div>
             <div class="en">${s.titleEn}</div>
-            <div class="meta">${s.lines.length} redaka</div>
+            <div class="meta">${metaBits.join(" · ")}</div>
           </div>
         `;
-        // Handled with a same-page view switch (not a real navigation) so this
-        // click's user gesture is still active when we call audio.play() below -
-        // a fresh page load loses that gesture and iOS Safari blocks autoplay.
         a.addEventListener("click", (e) => {
           e.preventDefault();
           history.pushState({ story: s.id }, "", `index.html?story=${s.id}`);
           selectStory(s.id);
         });
         storyList.appendChild(a);
+      });
+    }
+
+    function renderQuizList() {
+      quizList.innerHTML = "";
+      displayedStories().forEach((s) => {
+        const learn = loadLearn();
+        const key = slotKey(s.id, storyWeek(s));
+        const passed = !!learn.passed[key];
+        const completed = !!learn.completed[key];
+        const locked = !canTakeQuiz(s);
+        const a = document.createElement(locked ? "button" : "a");
+        a.className = locked ? "story-card locked" : "story-card";
+        if (locked) {
+          a.type = "button";
+          a.setAttribute("aria-disabled", "true");
+        } else {
+          a.href = `index.html?quiz=${s.id}`;
+        }
+        let meta = "Pročitaj priču prvo";
+        if (passed) meta = "Položeno — priča se smije zamijeniti";
+        else if (completed) meta = "5 pitanja · treba 4 točna";
+        a.innerHTML = `
+          <div class="icon">${passed ? "✅" : locked ? "🔒" : "📝"}</div>
+          <div class="text">
+            <div class="hr">${s.titleHr}</div>
+            <div class="en">${s.titleEn}</div>
+            <div class="meta">${meta}</div>
+          </div>
+        `;
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          if (locked) return;
+          history.pushState({ quiz: s.id }, "", `index.html?quiz=${s.id}`);
+          startQuiz(s.id);
+        });
+        quizList.appendChild(a);
       });
     }
 
@@ -455,34 +579,49 @@
     });
 
     function showSection(section) {
+      currentSection = section;
       storiesTabOption.classList.toggle("active", section === "stories");
       songsTabOption.classList.toggle("active", section === "songs");
       booksTabOption.classList.toggle("active", section === "books");
+      quizTabOption.classList.toggle("active", section === "quiz");
       storyList.hidden = section !== "stories";
       songList.hidden = section !== "songs";
       bookList.hidden = section !== "books";
+      quizList.hidden = section !== "quiz";
+      if (section === "stories") {
+        learnHint.hidden = false;
+        learnHint.textContent = "Slušaj. U pauzi ponovi.";
+      } else if (section === "quiz") {
+        learnHint.hidden = false;
+        learnHint.textContent = "Položi kviz. Tek onda ide nova priča.";
+      } else {
+        learnHint.hidden = true;
+      }
     }
 
     storiesTabOption.addEventListener("click", () => showSection("stories"));
     songsTabOption.addEventListener("click", () => showSection("songs"));
     booksTabOption.addEventListener("click", () => showSection("books"));
+    quizTabOption.addEventListener("click", () => {
+      renderQuizList();
+      showSection("quiz");
+    });
 
     function showHome() {
       story = null;
       contentKind = null;
       song = null;
+      quizStory = null;
+      renderHome();
+      renderQuizList();
       showScreen(homeScreen);
+      showSection(currentSection);
     }
 
     function selectContent(id, list) {
       story = list.find((s) => s.id === id) || list[0];
       contentKind = list === BOOKS ? "book" : "story";
       idx = 0;
-      slowMode = false;
-      playingHalf = "a";
-      repeat = 1;
-      normalOption.classList.add("active");
-      slowOption.classList.remove("active");
       doneScreen.hidden = true;
       playerTop.hidden = false;
       lineArea.hidden = false;
@@ -492,7 +631,7 @@
     }
 
     function selectStory(id) {
-      selectContent(id, STORIES);
+      selectContent(id, displayedStories());
     }
 
     function selectBook(id) {
@@ -520,7 +659,7 @@
 
     function playCurrent() {
       const line = story.lines[idx];
-      audio.src = slowMode ? (playingHalf === "a" ? line.audioSlowA : line.audioSlowB) : line.audio;
+      audio.src = line.audio;
       replayBtn.textContent = "🔁 Ponovi";
       attemptPlay();
     }
@@ -533,44 +672,20 @@
     }
 
     // Shared by the manual prev/next buttons and the auto-advance timer, so both
-    // agree on what "forward"/"backward" means. In slow mode this steps through
-    // segments (half A, half B) rather than whole lines - e.g. from half B,
-    // backward lands on half A of the *same* line, not the previous line.
+    // agree on what "forward"/"backward" means. Each step is one 5–6 word phrase.
     function advance(direction) {
       if (direction === "forward") {
-        if (slowMode) {
-          if (playingHalf === "a") {
-            playingHalf = "b";
-          } else if (idx < story.lines.length - 1) {
-            idx++;
-            playingHalf = "a";
-          } else {
-            showDone();
-            return;
-          }
-        } else if (idx < story.lines.length - 1) {
+        if (idx < story.lines.length - 1) {
           idx++;
         } else {
           showDone();
           return;
         }
+      } else if (idx > 0) {
+        idx--;
       } else {
-        if (slowMode) {
-          if (playingHalf === "b") {
-            playingHalf = "a";
-          } else if (idx > 0) {
-            idx--;
-            playingHalf = "b";
-          } else {
-            return;
-          }
-        } else if (idx > 0) {
-          idx--;
-        } else {
-          return;
-        }
+        return;
       }
-      repeat = 1;
       renderCurrent();
     }
 
@@ -580,11 +695,112 @@
       controls.hidden = true;
       doneScreen.querySelector(".line-hr").textContent = contentKind === "book" ? "Kraj knjige" : "Kraj priče";
       doneScreen.hidden = false;
+      if (contentKind === "story") {
+        markCompleted(story);
+        doneQuizBtn.hidden = false;
+        return;
+      }
+      doneQuizBtn.hidden = true;
       scheduleAdvance(2500, () => {
         history.pushState(null, "", "index.html");
         showHome();
       });
     }
+
+    function startQuiz(id) {
+      quizStory = displayedStories().find((s) => s.id === id);
+      if (!quizStory) return;
+      if (!canTakeQuiz(quizStory)) {
+        currentSection = "quiz";
+        showHome();
+        return;
+      }
+      quizItems = buildQuiz(quizStory);
+      quizIdx = 0;
+      quizScore = 0;
+      quizLocked = false;
+      quizStatus.textContent = "";
+      showScreen(quizScreen);
+      renderQuizQuestion();
+    }
+
+    function renderQuizQuestion() {
+      const item = quizItems[quizIdx];
+      quizProgress.textContent = `${quizIdx + 1} / ${quizItems.length}`;
+      quizPrompt.textContent = item.en;
+      quizChoices.innerHTML = "";
+      quizLocked = false;
+      item.choices.forEach((choice) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "quiz-choice";
+        btn.textContent = choice;
+        btn.addEventListener("click", () => onQuizChoice(btn, choice, item.correct));
+        quizChoices.appendChild(btn);
+      });
+    }
+
+    function onQuizChoice(btn, choice, correct) {
+      if (quizLocked) return;
+      quizLocked = true;
+      const buttons = [...quizChoices.querySelectorAll(".quiz-choice")];
+      buttons.forEach((b) => {
+        if (b.textContent === correct) b.classList.add("correct");
+        b.disabled = true;
+      });
+      if (choice === correct) {
+        quizScore += 1;
+        btn.classList.add("correct");
+      } else {
+        btn.classList.add("wrong");
+      }
+      setTimeout(() => {
+        if (quizIdx < quizItems.length - 1) {
+          quizIdx += 1;
+          renderQuizQuestion();
+        } else {
+          finishQuiz();
+        }
+      }, 700);
+    }
+
+    function finishQuiz() {
+      const passed = quizScore >= QUIZ_PASS;
+      quizChoices.innerHTML = "";
+      quizPrompt.textContent = passed ? "Položeno" : "Još jednom";
+      quizProgress.textContent = `${quizScore} / ${quizItems.length}`;
+      if (passed) {
+        markPassed(quizStory);
+        quizStatus.textContent = "Ova se priča smije zamijeniti idući tjedan.";
+      } else {
+        quizStatus.textContent = "Treba 4 točna. Priča ostaje do sljedećeg pokušaja.";
+      }
+      const again = document.createElement("button");
+      again.type = "button";
+      again.className = "replay";
+      again.textContent = passed ? "Natrag" : "Pokušaj opet";
+      again.addEventListener("click", () => {
+        if (passed) {
+          history.pushState(null, "", "index.html");
+          renderHome();
+          renderQuizList();
+          showHome();
+          showSection("quiz");
+        } else {
+          startQuiz(quizStory.id);
+        }
+      });
+      quizChoices.appendChild(again);
+    }
+
+    doneQuizBtn.addEventListener("click", () => {
+      history.pushState({ quiz: story.id }, "", `index.html?quiz=${story.id}`);
+      startQuiz(story.id);
+    });
+    quizBackLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      history.back();
+    });
 
     // Schedules the next step and remembers it as `pendingAction`, so that if the
     // user pauses during this gap, unpausing can run the exact same action
@@ -600,17 +816,7 @@
 
     audio.addEventListener("ended", () => {
       const spokenSeconds = audio.duration || 2;
-
-      if (slowMode && repeat === 1) {
-        scheduleAdvance(spokenSeconds * SLOW_PAUSE_MULT * 1000, () => {
-          repeat = 2;
-          playCurrent();
-        });
-        return;
-      }
-
-      const pauseMultiplier = slowMode ? SLOW_PAUSE_MULT : NORMAL_PAUSE_MULT;
-      scheduleAdvance(spokenSeconds * pauseMultiplier * 1000, () => advance("forward"));
+      scheduleAdvance(spokenSeconds * PHRASE_PAUSE_MULT * 1000, () => advance("forward"));
     });
 
     // If the audio file 404s or otherwise fails to load, "ended" never fires and
@@ -618,7 +824,7 @@
     // "ended" - a short fixed pause (in place of the missing clip's duration),
     // then advance - so the reader never gets stuck.
     audio.addEventListener("error", () => {
-      scheduleAdvance(NORMAL_PAUSE_MULT * 1000, () => advance("forward"));
+      scheduleAdvance(PHRASE_PAUSE_MULT * 1000, () => advance("forward"));
     });
 
     document.getElementById("prevBtn").addEventListener("click", () => advance("backward"));
@@ -647,18 +853,6 @@
       }
     });
 
-    function setSlowMode(slow) {
-      if (slow === slowMode) return;
-      slowMode = slow;
-      playingHalf = "a";
-      repeat = 1;
-      normalOption.classList.toggle("active", !slowMode);
-      slowOption.classList.toggle("active", slowMode);
-      renderCurrent();
-    }
-    normalOption.addEventListener("click", () => setSlowMode(false));
-    slowOption.addEventListener("click", () => setSlowMode(true));
-
     backLink.addEventListener("click", (e) => {
       e.preventDefault();
       history.back();
@@ -669,8 +863,11 @@
       const storyId = params.get("story");
       const songId = params.get("song");
       const bookId = params.get("book");
-      if (storyId && STORIES.some((s) => s.id === storyId)) {
+      const quizId = params.get("quiz");
+      if (storyId && displayedStories().some((s) => s.id === storyId)) {
         selectStory(storyId);
+      } else if (quizId && displayedStories().some((s) => s.id === quizId)) {
+        startQuiz(quizId);
       } else if (songId && SONGS.some((s) => s.id === songId)) {
         selectSong(songId);
         if (params.get("play")) enterPerformance(false);
@@ -682,9 +879,15 @@
     }
     window.addEventListener("popstate", syncFromUrl);
 
+    const homeEyebrow = document.getElementById("homeEyebrow");
+    if (typeof STORY_DATE_HR === "string" && STORY_DATE_HR) {
+      homeEyebrow.textContent = `✨ Nikola · ${STORY_DATE_HR}`;
+    }
+
     renderHome();
     renderSongs();
     renderBooks();
+    renderQuizList();
     syncFromUrl();
 
     // Keep the screen awake for the duration of the story.

@@ -1,0 +1,188 @@
+#!/usr/bin/env node
+// Writes stories.js for the Monday of the current Europe/Zagreb week.
+// Keeps last week's stories as PREVIOUS_* so the app can hold a card
+// until its quiz is passed.
+
+const fs = require("fs");
+const path = require("path");
+const bank = require("./story-bank");
+const { phraseIssues } = require("./croatian-checks");
+
+const MONTHS_HR = [
+  "siječnja", "veljače", "ožujka", "travnja", "svibnja", "lipnja",
+  "srpnja", "kolovoza", "rujna", "listopada", "studenoga", "prosinca",
+];
+
+function zagrebDate(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zagreb",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+function dayNumber(isoDate) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+function mondayOf(isoDate) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const utc = Date.UTC(y, m - 1, d);
+  const dow = new Date(utc).getUTCDay(); // 0 Sun .. 6 Sat
+  const delta = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(utc + delta * 86400000);
+  return mon.toISOString().slice(0, 10);
+}
+
+function formatHrWeek(mondayIso) {
+  const [y, m, d] = mondayIso.split("-").map(Number);
+  return `tjedan ${d}. ${MONTHS_HR[m - 1]} ${y}.`;
+}
+
+function cloneStory(variant, id, emoji, weekDate) {
+  return {
+    id,
+    emoji: variant.emoji || emoji,
+    weekDate,
+    titleHr: variant.titleHr,
+    titleEn: variant.titleEn,
+    focusHr: variant.focusHr,
+    focusEn: variant.focusEn,
+    lines: variant.lines.map((line) => ({ hr: line.hr, en: line.en })),
+  };
+}
+
+function pickSada(weekNum, month) {
+  if (month === 10) return bank.sada.variants.mamaBirthday;
+  if (month === 11) return bank.sada.variants.bakaBirthday;
+  if (month === 12) return bank.sada.variants.taraBirthday;
+  const keys = ["krstenje", "plane", "family", "beach"];
+  return bank.sada.variants[keys[weekNum % 4]];
+}
+
+function buildStories(mondayIso) {
+  const weekNum = Math.floor(dayNumber(mondayIso) / 7);
+  const month = Number(mondayIso.slice(5, 7));
+  const tara = bank.tara.variants[weekNum % bank.tara.variants.length];
+  const baka = bank.baka.variants[weekNum % bank.baka.variants.length];
+  const outingBank = weekNum % 2 === 0 ? bank.mama : bank.tata;
+  const outing = outingBank.variants[Math.floor(weekNum / 2) % outingBank.variants.length];
+  const sada = pickSada(weekNum, month);
+
+  return [
+    cloneStory(tara, bank.tara.id, bank.tara.emoji, mondayIso),
+    cloneStory(baka, bank.baka.id, bank.baka.emoji, mondayIso),
+    cloneStory(outing, outingBank.id, outingBank.emoji, mondayIso),
+    cloneStory(sada, bank.sada.id, sada.emoji || bank.sada.emoji, mondayIso),
+  ];
+}
+
+function fillAudio(stories) {
+  stories.forEach((story) => {
+    story.lines.forEach((line, i) => {
+      const n = String(i + 1).padStart(2, "0");
+      line.audio = `audio/${story.id}/${story.weekDate}/line${n}.mp3`;
+    });
+  });
+}
+
+function assertBank() {
+  const errors = [];
+  function check(label, variant) {
+    if (!variant.lines || variant.lines.length !== 10) {
+      errors.push(`${label} has ${variant.lines ? variant.lines.length : 0} lines (need 10)`);
+    }
+    (variant.lines || []).forEach((line, li) => {
+      phraseIssues(line.hr).forEach((issue) => {
+        errors.push(`${label} line ${li + 1}: "${line.hr}" — ${issue}`);
+      });
+    });
+  }
+  ["tara", "baka", "mama", "tata"].forEach((key) => {
+    bank[key].variants.forEach((v, i) => check(`${key}[${i}]`, v));
+  });
+  Object.entries(bank.sada.variants).forEach(([k, v]) => check(`sada.${k}`, v));
+  if (errors.length) {
+    console.error(errors.join("\n"));
+    process.exit(1);
+  }
+}
+
+function isCurrentShape(stories) {
+  return Array.isArray(stories) && stories.some((s) => s.id === "s-tara");
+}
+
+function readExisting() {
+  const storiesPath = path.join(__dirname, "..", "stories.js");
+  if (!fs.existsSync(storiesPath)) return { date: null, stories: [], prevDate: null, prevStories: [] };
+  try {
+    delete require.cache[require.resolve("../stories.js")];
+    const existing = require("../stories.js");
+    const stories = Array.isArray(existing) ? existing.map((s) => JSON.parse(JSON.stringify(s))) : [];
+    const prevStories = isCurrentShape(existing.PREVIOUS_STORIES) ? existing.PREVIOUS_STORIES : [];
+    return {
+      date: isCurrentShape(stories) ? (existing.STORY_DATE || null) : null,
+      stories: isCurrentShape(stories) ? stories : [],
+      prevDate: prevStories.length ? existing.PREVIOUS_DATE || null : null,
+      prevStories,
+    };
+  } catch {
+    return { date: null, stories: [], prevDate: null, prevStories: [] };
+  }
+}
+
+function renderFile({ mondayIso, stories, prevDate, prevStories }) {
+  const payload = {
+    STORY_DATE: mondayIso,
+    STORY_DATE_HR: formatHrWeek(mondayIso),
+    PREVIOUS_DATE: prevDate,
+    PREVIOUS_STORIES: prevStories,
+    STORIES: stories,
+  };
+  const json = JSON.stringify(payload, null, 2);
+  return `// Generated by scripts/update-weekly-stories.js for week of ${mondayIso}.
+// Do not edit by hand — change scripts/story-bank.js and re-run.
+
+const WEEK = ${json};
+
+const STORY_DATE = WEEK.STORY_DATE;
+const STORY_DATE_HR = WEEK.STORY_DATE_HR;
+const PREVIOUS_DATE = WEEK.PREVIOUS_DATE;
+const PREVIOUS_STORIES = WEEK.PREVIOUS_STORIES;
+const STORIES = WEEK.STORIES;
+
+if (typeof module !== "undefined") {
+  module.exports = STORIES;
+  module.exports.STORY_DATE = STORY_DATE;
+  module.exports.STORY_DATE_HR = STORY_DATE_HR;
+  module.exports.PREVIOUS_DATE = PREVIOUS_DATE;
+  module.exports.PREVIOUS_STORIES = PREVIOUS_STORIES;
+}
+`;
+}
+
+assertBank();
+
+const today = process.argv[2] && /^\d{4}-\d{2}-\d{2}$/.test(process.argv[2])
+  ? process.argv[2]
+  : zagrebDate();
+const mondayIso = mondayOf(today);
+const stories = buildStories(mondayIso);
+fillAudio(stories);
+
+const existing = readExisting();
+let prevDate = null;
+let prevStories = [];
+if (existing.date && existing.date !== mondayIso && existing.stories.length) {
+  prevDate = existing.date;
+  prevStories = existing.stories;
+} else {
+  prevDate = existing.prevDate;
+  prevStories = existing.prevStories || [];
+}
+
+const outPath = path.join(__dirname, "..", "stories.js");
+fs.writeFileSync(outPath, renderFile({ mondayIso, stories, prevDate, prevStories }));
+console.log(`Wrote 4 stories for ${mondayIso} → ${outPath}${prevDate ? ` (previous ${prevDate})` : ""}`);

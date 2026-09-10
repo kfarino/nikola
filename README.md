@@ -1,20 +1,21 @@
 # Nikola
 
-A tiny app for reading simple, repetitive Croatian stories to a baby. Plain HTML/CSS/JS, no build step, no framework. Meant to run on a phone propped up screen-toward-you as a teleprompter while you face your kid.
+A tiny app for reading simple, repetitive Croatian to a baby — and for the parent to **learn Croatian** while doing it. Plain HTML/CSS/JS, no build step. Phone propped screen-toward-you as a teleprompter.
 
-## How it works
+## Priče (the Croatian course)
 
-- `stories.js` — all story text (Croatian + English), one entry per line.
-- `index.html` — the whole app: a home screen (lists the stories) and a player screen (shows one line at a time, Croatian large, English below, plays that line's audio, and auto-advances when it finishes; tap "Ponovi" to replay). Both live in one page — selecting a story swaps the view with JS (`history.pushState`, no real navigation) instead of loading a separate page, so the tap that picks a story is still an active user gesture when `audio.play()` is called. That's required for the first line to autoplay on iOS Safari; a real page load would lose the gesture and autoplay would get blocked.
-- `audio/<storyId>/lineNN.mp3` — pre-generated narration, one file per line, committed to the repo.
-- `songs.js` — song chords and lyrics, one entry per song. Reachable via the "Pjesme" tab next to "Priče" on the home screen. Picking a song opens a chord-preview screen (title, artist, key/capo, and each section's chord progression) with a "Sviraj" button; tapping it opens a performance screen with a big chord widget for the current section and an auto-scrolling lyric line, plus prev/next-section, pause, and speed controls, meant to be propped up while you play guitar and sing live.
-- `books.js` — Croatian reading-companion text for physical books, one entry per book, same shape and audio pipeline as `stories.js`. Reachable via the "Knjige" tab. Uses the exact same player screen as Priče (large Croatian line, English below, Polako slow mode, pause) - Books and Stories are read identically.
+Four short present-tense stories a week, 10 lines of 5–6 words each. Same four all week. Tara (2) shows Nikola big-kid play; baka is staying in the house; one outing with mama or tata; one “this season” card (Boston / krštenje / birthdays).
 
-## Adding or editing a story
+**How to use a line:** look at the Croatian → hear the clip at normal speed → **say it yourself in the pause**. English is a gloss, not the script. No Polako.
 
-1. Edit `stories.js` — add a story object (`id`, `titleHr`, `titleEn`, `lines: [{hr, en}]`) or change existing line text. Don't hand-write the `audio` path — it's filled in automatically from `id` + line position.
-2. Regenerate audio for that story (see below) so the MP3s match the new text.
-3. Commit the updated `stories.js` and the new/changed MP3s together.
+**Kviz:** after you finish a story, take five English→Croatian questions. You need 4/5. A story is **not replaced** the next Monday until that quiz is passed (the app keeps last week’s card until then).
+
+Stories are generated from `scripts/story-bank.js` by `scripts/update-weekly-stories.js`. Do not edit `stories.js` by hand.
+
+- `stories.js` — this week’s four stories (plus last week, for the quiz gate).
+- `index.html` — home, player, quiz, songs, books. Selecting a story is a same-page view switch so iOS Safari still allows `audio.play()` from the tap.
+- `audio/<storyId>/<weekDate>/lineNN.mp3` — narration, committed to the repo.
+- `songs.js` / `books.js` — unchanged sections (Pjesme, Knjige). Books use the same player at normal speed. **Never generate copyrighted book or song text with an assistant.**
 
 ## Adding a book
 
@@ -41,14 +42,12 @@ Default voice: **Fran — Calm, Narrative** (`TRnNlYQWHAJwo9K75wNE`), a warm, me
 1. Put your ElevenLabs API key in a local `.env` file (gitignored) as `ELEVENLABS_API_KEY=...`, or export it as an env var.
 2. Run:
    ```
-   node scripts/generate-audio.js
+   node scripts/generate-audio.js --stories --force
    ```
-   This regenerates **every** line for **every** story and book using the default voice above. To try a different voice, browse https://elevenlabs.io/app/voice-library and pass `ELEVENLABS_VOICE_ID=...`. It overwrites existing files, so it's safe to re-run any time story text changes.
+   This regenerates **this week’s** (and last week’s, if present) story lines. Books: omit `--stories` or pass `--books`. Pass an `id` to do one entry. Override voice with `ELEVENLABS_VOICE_ID`.
 
-   To regenerate just one story or book (e.g. after editing a single book, so you don't re-synthesize and rewrite every other unchanged story/book's already-committed MP3s), pass its `id` as an argument:
-   ```
-   node scripts/generate-audio.js my-book-id
-   ```
+   The Monday GitHub Action (`.github/workflows/weekly-stories.yml`) runs the same thing after `update-weekly-stories.js`. Add repo secret `ELEVENLABS_API_KEY` and allow Actions read/write on contents, then run **Weekly stories** once by hand.
+
 3. Review the generated MP3s, then commit them.
 
 Requires Node 18+ (uses the built-in `fetch`). No `npm install` needed.
