@@ -107,6 +107,7 @@
   <script src="stories.js"></script>
   <script src="songs.js"></script>
   <script src="books.js"></script>
+  <script src="learn-gate.js"></script>
   <script>
     const homeScreen = document.getElementById("homeScreen");
     const playerScreen = document.getElementById("playerScreen");
@@ -182,20 +183,11 @@
     function saveLearn(data) {
       localStorage.setItem(LEARN_KEY, JSON.stringify(data));
     }
-    function slotKey(id, date) {
-      return `${id}:${date}`;
-    }
     function storyWeek(s) {
       return s.weekDate || STORY_DATE;
     }
     function displayedStories() {
-      if (!previousDate || !previousStories.length) return STORIES;
-      const learn = loadLearn();
-      return STORIES.map((fresh) => {
-        const old = previousStories.find((s) => s.id === fresh.id);
-        if (old && !learn.passed[slotKey(old.id, storyWeek(old))]) return old;
-        return fresh;
-      });
+      return displayedStoriesFor(STORIES, previousStories, previousDate, loadLearn().passed);
     }
     function shuffle(list) {
       const a = list.slice();
@@ -337,14 +329,16 @@
         const key = slotKey(s.id, storyWeek(s));
         const passed = !!learn.passed[key];
         const completed = !!learn.completed[key];
+        const locked = !completed && !passed;
         const a = document.createElement("a");
-        a.className = "story-card";
-        a.href = `index.html?quiz=${s.id}`;
+        a.className = locked ? "story-card locked" : "story-card";
+        a.href = locked ? "index.html" : `index.html?quiz=${s.id}`;
+        if (locked) a.setAttribute("aria-disabled", "true");
         let meta = "Pročitaj priču prvo";
         if (passed) meta = "Položeno — priča se smije zamijeniti";
         else if (completed) meta = "5 pitanja · treba 4 točna";
         a.innerHTML = `
-          <div class="icon">${passed ? "✅" : "📝"}</div>
+          <div class="icon">${passed ? "✅" : locked ? "🔒" : "📝"}</div>
           <div class="text">
             <div class="hr">${s.titleHr}</div>
             <div class="en">${s.titleEn}</div>
@@ -353,7 +347,7 @@
         `;
         a.addEventListener("click", (e) => {
           e.preventDefault();
-          if (!completed && !passed) return;
+          if (locked) return;
           history.pushState({ quiz: s.id }, "", `index.html?quiz=${s.id}`);
           startQuiz(s.id);
         });
@@ -582,7 +576,15 @@
       songList.hidden = section !== "songs";
       bookList.hidden = section !== "books";
       quizList.hidden = section !== "quiz";
-      learnHint.hidden = section !== "stories";
+      if (section === "stories") {
+        learnHint.hidden = false;
+        learnHint.textContent = "Slušaj. U pauzi ponovi.";
+      } else if (section === "quiz") {
+        learnHint.hidden = false;
+        learnHint.textContent = "Položi kviz. Tek onda ide nova priča.";
+      } else {
+        learnHint.hidden = true;
+      }
     }
 
     storiesTabOption.addEventListener("click", () => showSection("stories"));

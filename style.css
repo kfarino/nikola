@@ -115,6 +115,14 @@ body {
   background: var(--bg-elevated-2);
 }
 
+.story-card.locked {
+  opacity: 0.55;
+}
+
+.story-card.locked:active {
+  background: var(--bg-elevated-1);
+}
+
 .story-card .icon {
   width: 3rem;
   flex-shrink: 0;

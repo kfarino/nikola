@@ -9,6 +9,8 @@ on:
       - scripts/croatian-checks.js
       - scripts/update-weekly-stories.js
       - scripts/validate-stories.js
+      - learn-gate.js
+      - scripts/test-quiz-gate.js
 
 jobs:
   validate:
@@ -17,3 +19,4 @@ jobs:
       - uses: actions/checkout@v4
       - run: node scripts/update-weekly-stories.js
       - run: node scripts/validate-stories.js --bank
+      - run: node scripts/test-quiz-gate.js
