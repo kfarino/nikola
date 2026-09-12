@@ -227,6 +227,14 @@
     let songPaused = false;
     let karaokeLineOffsets = []; // [{ el, top, sectionIdx }] per rendered lyric line, in play order
     let karaokeMaxScroll = 0;
+    // Auto-scroll's own position, in float CSS pixels. It deliberately does
+    // NOT live in karaokeViewport.scrollTop: the browser snaps scrollTop to
+    // whole device pixels, so at the rates this screen actually uses (Brzina 1
+    // = 5px/sec = 0.08px per frame) every increment was rounded away on
+    // readback and the lyrics never moved at all. scrollTop stays the render
+    // target, and stays authoritative while a finger is dragging; this is what
+    // auto-scroll accumulates into between frames.
+    let karaokePos = 0;
     let karaokeRafId = null;
     let karaokeLastFrameTime = 0;
     let karaokeSpeed = 5; // px/sec - hands-free auto-scroll rate (default = slowest)
@@ -260,7 +268,8 @@
 
     function setKaraokeScrollPos(pos) {
       const max = Math.max(0, karaokeMaxScroll);
-      karaokeViewport.scrollTop = Math.max(0, Math.min(max, pos));
+      karaokePos = Math.max(0, Math.min(max, pos));
+      karaokeViewport.scrollTop = karaokePos;
       updateChordWidget();
     }
 
@@ -269,6 +278,7 @@
       karaokeLineOffsets.forEach((entry) => {
         entry.top = entry.el.offsetTop;
       });
+      karaokePos = Math.min(karaokePos, karaokeMaxScroll);
     }
 
     function beginKaraokeDrag() {
@@ -282,6 +292,9 @@
       karaokeResumeTimer = setTimeout(() => {
         karaokeDragging = false;
         karaokeLastFrameTime = 0;
+        // The gesture moved scrollTop behind the accumulator's back; resume
+        // from where it landed instead of snapping back to the old position.
+        karaokePos = karaokeViewport.scrollTop;
         updateChordWidget();
       }, 180);
     }
@@ -479,7 +492,7 @@
 
       // Finger scroll owns the pane; auto-scroll resumes after release.
       if (!karaokeDragging) {
-        let next = karaokeScrollPos() + karaokeSpeed * deltaSec;
+        let next = karaokePos + karaokeSpeed * deltaSec;
         if (karaokeMaxScroll > 0 && next >= karaokeMaxScroll) {
           next = 0; // looped back to the start
         }
