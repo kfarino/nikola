@@ -158,11 +158,13 @@
     let pendingAction = null; // what pendingTimer will do when it fires - resumed immediately on unpause
     let isPaused = false;
     let pausedState = null; // "playing" | "waiting" - what we were doing when paused
-    // After each 5–6 word chunk, wait about one clip so the parent can echo it.
-    const PHRASE_PAUSE_MULT = 1;
+    // After each 5–6 word chunk, wait twice the clip so the parent has room
+    // to think and then say it back, instead of being cut off mid-echo.
+    const PHRASE_PAUSE_MULT = 2;
     const LEARN_KEY = "nikola-learn";
     const QUIZ_PASS = 4;
     const QUIZ_N = 5;
+    const QUIZ_DECOYS = 2; // extra wrong words mixed into each question's tiles
     const previousStories = typeof PREVIOUS_STORIES !== "undefined" && PREVIOUS_STORIES ? PREVIOUS_STORIES : [];
     const previousDate = typeof PREVIOUS_DATE !== "undefined" ? PREVIOUS_DATE : null;
 
@@ -171,6 +173,8 @@
     let quizIdx = 0;
     let quizScore = 0;
     let quizLocked = false;
+    let quizPlaced = []; // tiles tapped into the answer, in order
+    let quizBank = []; // tiles still waiting to be used
     let currentSection = "stories";
 
     function canTakeQuiz(s) {
@@ -206,11 +210,38 @@
       }
       return a;
     }
+    // A line's comparable words: no trailing sentence punctuation, since a tile
+    // ending in "." would give away which word goes last.
+    function lineWords(hr) {
+      return hr.replace(/[.!?]+$/, "").split(/\s+/).filter(Boolean);
+    }
+
+    // Each question is the line's own words, shuffled, plus a couple of decoy
+    // words drawn from elsewhere in the same story - so a wrong tile is a word
+    // actually heard this week, not obvious filler. Picking the right sentence
+    // out of three whole alternatives only ever needed one recognisable
+    // keyword; rebuilding it word by word needs the word order and the endings.
     function buildQuiz(s) {
       return shuffle(s.lines).slice(0, QUIZ_N).map((line) => {
-        const others = s.lines.filter((l) => l.hr !== line.hr);
-        const distractors = shuffle(others).slice(0, 2).map((l) => l.hr);
-        return { en: line.en, correct: line.hr, choices: shuffle([line.hr].concat(distractors)) };
+        const words = lineWords(line.hr);
+        const own = new Set(words.map((w) => w.toLowerCase()));
+        const pool = shuffle(
+          s.lines
+            .filter((l) => l.hr !== line.hr)
+            .flatMap((l) => lineWords(l.hr))
+            .filter((w) => !own.has(w.toLowerCase()))
+        );
+        const decoys = [];
+        for (const w of pool) {
+          if (decoys.length >= QUIZ_DECOYS) break;
+          if (!decoys.some((d) => d.toLowerCase() === w.toLowerCase())) decoys.push(w);
+        }
+        // Tiles carry an id because a sentence can legitimately repeat a word
+        // ("se", "za"), and tapping one must move that tile, not its twin.
+        const tiles = shuffle(
+          words.concat(decoys).map((text, i) => ({ id: i, text }))
+        );
+        return { en: line.en, correct: words.join(" "), tiles };
       });
     }
     function markCompleted(s) {
@@ -741,40 +772,82 @@
       const item = quizItems[quizIdx];
       quizProgress.textContent = `${quizIdx + 1} / ${quizItems.length}`;
       quizPrompt.textContent = item.en;
-      quizChoices.innerHTML = "";
       quizLocked = false;
-      item.choices.forEach((choice) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "quiz-choice";
-        btn.textContent = choice;
-        btn.addEventListener("click", () => onQuizChoice(btn, choice, item.correct));
-        quizChoices.appendChild(btn);
-      });
+      quizPlaced = [];
+      quizBank = item.tiles.slice();
+      renderQuizTiles();
     }
 
-    function onQuizChoice(btn, choice, correct) {
+    function quizTileButton(tile, where) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "quiz-tile";
+      btn.textContent = tile.text;
+      btn.disabled = quizLocked;
+      btn.addEventListener("click", () => {
+        if (quizLocked) return;
+        if (where === "bank") {
+          quizBank = quizBank.filter((t) => t.id !== tile.id);
+          quizPlaced.push(tile);
+        } else {
+          quizPlaced = quizPlaced.filter((t) => t.id !== tile.id);
+          quizBank.push(tile);
+        }
+        renderQuizTiles();
+      });
+      return btn;
+    }
+
+    // Redrawn on every tap: the answer row on top, the unused tiles below.
+    // Tapping a placed tile sends it back, so a wrong guess stays undoable
+    // right up until "Provjeri".
+    function renderQuizTiles() {
+      const item = quizItems[quizIdx];
+      quizChoices.innerHTML = "";
+
+      const build = document.createElement("div");
+      build.className = "quiz-build";
+      if (quizPlaced.length === 0) {
+        const hint = document.createElement("span");
+        hint.className = "quiz-build-hint";
+        hint.textContent = "Složi rečenicu";
+        build.appendChild(hint);
+      }
+      quizPlaced.forEach((tile) => build.appendChild(quizTileButton(tile, "placed")));
+      quizChoices.appendChild(build);
+
+      const bank = document.createElement("div");
+      bank.className = "quiz-bank";
+      quizBank.forEach((tile) => bank.appendChild(quizTileButton(tile, "bank")));
+      quizChoices.appendChild(bank);
+
+      const check = document.createElement("button");
+      check.type = "button";
+      check.className = "quiz-check";
+      check.textContent = "Provjeri";
+      check.disabled = quizLocked || quizPlaced.length === 0;
+      check.addEventListener("click", () => onQuizCheck(item));
+      quizChoices.appendChild(check);
+    }
+
+    function onQuizCheck(item) {
       if (quizLocked) return;
       quizLocked = true;
-      const buttons = [...quizChoices.querySelectorAll(".quiz-choice")];
-      buttons.forEach((b) => {
-        if (b.textContent === correct) b.classList.add("correct");
-        b.disabled = true;
-      });
-      if (choice === correct) {
-        quizScore += 1;
-        btn.classList.add("correct");
-      } else {
-        btn.classList.add("wrong");
-      }
+      const right = quizPlaced.map((t) => t.text).join(" ") === item.correct;
+      if (right) quizScore += 1;
+      renderQuizTiles();
+      quizChoices.querySelector(".quiz-build").classList.add(right ? "correct" : "wrong");
+      // On a miss, show the real sentence and hold long enough to read it.
+      if (!right) quizStatus.textContent = item.correct;
       setTimeout(() => {
+        quizStatus.textContent = "";
         if (quizIdx < quizItems.length - 1) {
           quizIdx += 1;
           renderQuizQuestion();
         } else {
           finishQuiz();
         }
-      }, 700);
+      }, right ? 700 : 2400);
     }
 
     function finishQuiz() {
