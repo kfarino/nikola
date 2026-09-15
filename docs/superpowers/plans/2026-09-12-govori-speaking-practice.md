@@ -1,5 +1,7 @@
 # Govori (Speaking-First Practice) Implementation Plan
 
+> **Parked 2026-09-14** — revisit once daily use is steady. Work so far is on the unmerged `govori-speaking-practice` branch; Wiktionary glossed only 18% of words, see that branch's history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add an eyes-free, Pimsleur-style speaking mode where an English voice prompts, the learner answers aloud from memory, a Croatian voice confirms, and self-rating drives graduated interval recall.

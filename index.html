@@ -34,6 +34,7 @@
   <div class="player" id="playerScreen" hidden>
     <div class="player-top" id="playerTop">
       <a class="back-link" href="index.html" id="backLink">&lsaquo; Natrag</a>
+      <button type="button" id="reciBtn" class="reci-start">🗣 Reci</button>
     </div>
 
     <div class="line-area" id="lineArea">
@@ -102,12 +103,26 @@
     </div>
   </div>
 
+  <div class="player" id="reciScreen" hidden>
+    <div class="player-top">
+      <a class="back-link" href="index.html" id="reciBackLink">&lsaquo; Natrag</a>
+      <div id="reciProgress" class="quiz-progress"></div>
+    </div>
+    <div class="reci-body">
+      <div class="quiz-prompt-label" id="reciLabel">Reci na hrvatskom</div>
+      <div class="line-en" id="reciEn"></div>
+      <div class="line-hr" id="reciHr" hidden></div>
+      <div class="reci-actions" id="reciActions"></div>
+    </div>
+  </div>
+
   <audio id="audio" preload="auto" playsinline></audio>
 
   <script src="stories.js"></script>
   <script src="songs.js"></script>
   <script src="books.js"></script>
   <script src="learn-gate.js"></script>
+  <script src="quiz-typing.js"></script>
   <script>
     const homeScreen = document.getElementById("homeScreen");
     const playerScreen = document.getElementById("playerScreen");
@@ -136,6 +151,7 @@
     const quizPrompt = document.getElementById("quizPrompt");
     const quizChoices = document.getElementById("quizChoices");
     const quizStatus = document.getElementById("quizStatus");
+    const quizPromptLabel = document.querySelector("#quizScreen .quiz-prompt-label");
     const doneQuizBtn = document.getElementById("doneQuizBtn");
     const songPreviewScreen = document.getElementById("songPreviewScreen");
     const songPreviewTitle = document.getElementById("songPreviewTitle");
@@ -216,34 +232,54 @@
       return hr.replace(/[.!?]+$/, "").split(/\s+/).filter(Boolean);
     }
 
-    // Each question is the line's own words, shuffled, plus a couple of decoy
+    // One tile question: the line's own words, shuffled, plus a couple of decoy
     // words drawn from elsewhere in the same story - so a wrong tile is a word
-    // actually heard this week, not obvious filler. Picking the right sentence
-    // out of three whole alternatives only ever needed one recognisable
-    // keyword; rebuilding it word by word needs the word order and the endings.
-    function buildQuiz(s) {
-      return shuffle(s.lines).slice(0, QUIZ_N).map((line) => {
-        const words = lineWords(line.hr);
-        const own = new Set(words.map((w) => w.toLowerCase()));
-        const pool = shuffle(
-          s.lines
-            .filter((l) => l.hr !== line.hr)
-            .flatMap((l) => lineWords(l.hr))
-            .filter((w) => !own.has(w.toLowerCase()))
-        );
-        const decoys = [];
-        for (const w of pool) {
-          if (decoys.length >= QUIZ_DECOYS) break;
-          if (!decoys.some((d) => d.toLowerCase() === w.toLowerCase())) decoys.push(w);
-        }
-        // Tiles carry an id because a sentence can legitimately repeat a word
-        // ("se", "za"), and tapping one must move that tile, not its twin.
-        const tiles = shuffle(
-          words.concat(decoys).map((text, i) => ({ id: i, text }))
-        );
-        return { en: line.en, correct: words.join(" "), tiles };
-      });
+    // actually heard this week, not obvious filler.
+    function tileItem(s, line) {
+      const words = lineWords(line.hr);
+      const own = new Set(words.map((w) => w.toLowerCase()));
+      const pool = shuffle(
+        s.lines
+          .filter((l) => l.hr !== line.hr)
+          .flatMap((l) => lineWords(l.hr))
+          .filter((w) => !own.has(w.toLowerCase()))
+      );
+      const decoys = [];
+      for (const w of pool) {
+        if (decoys.length >= QUIZ_DECOYS) break;
+        if (!decoys.some((d) => d.toLowerCase() === w.toLowerCase())) decoys.push(w);
+      }
+      // Tiles carry an id because a sentence can legitimately repeat a word
+      // ("se", "za"), and tapping one must move that tile, not its twin.
+      const tiles = shuffle(words.concat(decoys).map((text, i) => ({ id: i, text })));
+      return { type: "tiles", en: line.en, correct: words.join(" "), tiles };
     }
+
+    // Vocabulary and verbs first: type the story's focus word from its English,
+    // and type the focus verb's form into a line with it blanked out. Both come
+    // from the hand-authored focusHr/focusEn, so no gloss is ever invented.
+    // Word tiles fill the rest.
+    function buildQuiz(s) {
+      const items = [];
+      if (s.focusHr && s.focusEn) {
+        items.push({ type: "vocab", en: s.focusEn, correct: s.focusHr });
+      }
+      const forms = focusForms(s);
+      if (forms.length) {
+        const pick = shuffle(forms)[0];
+        items.push({
+          type: "cloze",
+          en: clozeText(pick.line.hr, pick.form),
+          hint: `${pick.line.en} (${s.focusHr.split(/\s+/)[0]})`,
+          correct: pick.form,
+        });
+      }
+      const tiles = shuffle(s.lines)
+        .slice(0, QUIZ_N - items.length)
+        .map((line) => tileItem(s, line));
+      return shuffle(items.concat(tiles));
+    }
+
     function markCompleted(s) {
       const learn = loadLearn();
       learn.completed[slotKey(s.id, storyWeek(s))] = true;
@@ -335,9 +371,10 @@
     // karaoke scroll, or playing audio from the screen we're leaving is stopped.
     function showScreen(el) {
       clearTimeout(pendingTimer);
+      stopReci();
       stopKaraokeScroll();
       audio.pause();
-      [homeScreen, playerScreen, songPreviewScreen, songPlayScreen, quizScreen].forEach((s) => {
+      [homeScreen, playerScreen, songPreviewScreen, songPlayScreen, quizScreen, reciScreen].forEach((s) => {
         s.hidden = s !== el;
       });
     }
@@ -771,11 +808,74 @@
     function renderQuizQuestion() {
       const item = quizItems[quizIdx];
       quizProgress.textContent = `${quizIdx + 1} / ${quizItems.length}`;
+      quizPromptLabel.textContent = item.type === "cloze" ? "Dopuni" : "Kako se kaže";
       quizPrompt.textContent = item.en;
       quizLocked = false;
-      quizPlaced = [];
-      quizBank = item.tiles.slice();
-      renderQuizTiles();
+      if (item.type === "tiles") {
+        quizPlaced = [];
+        quizBank = item.tiles.slice();
+        renderQuizTiles();
+      } else {
+        renderTypedQuestion(item);
+      }
+    }
+
+    function renderTypedQuestion(item) {
+      quizChoices.innerHTML = "";
+      const form = document.createElement("form");
+      form.className = "quiz-type";
+      if (item.hint) {
+        const hint = document.createElement("div");
+        hint.className = "quiz-hint";
+        hint.textContent = item.hint;
+        form.appendChild(hint);
+      }
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "quiz-input";
+      input.lang = "hr";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.setAttribute("autocapitalize", "off");
+      input.setAttribute("autocorrect", "off");
+      const check = document.createElement("button");
+      check.type = "submit";
+      check.className = "quiz-check";
+      check.textContent = "Provjeri";
+      form.append(input, check);
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        onTypedCheck(item, input, check);
+      });
+      quizChoices.appendChild(form);
+      input.focus();
+    }
+
+    function onTypedCheck(item, input, check) {
+      if (quizLocked || !input.value.trim()) return;
+      quizLocked = true;
+      input.disabled = true;
+      check.disabled = true;
+      const result = checkTyped(input.value, item.correct);
+      if (result.ok) quizScore += 1;
+      input.classList.add(result.ok ? "correct" : "wrong");
+      if (!result.ok) quizStatus.textContent = item.correct;
+      else if (!result.exact) quizStatus.textContent = `točno, ali: ${item.correct}`;
+      nextQuizQuestion(result.ok && result.exact ? 700 : 2400);
+    }
+
+    // On anything short of a clean hit, the real answer is on screen, so hold
+    // long enough to read it.
+    function nextQuizQuestion(delayMs) {
+      setTimeout(() => {
+        quizStatus.textContent = "";
+        if (quizIdx < quizItems.length - 1) {
+          quizIdx += 1;
+          renderQuizQuestion();
+        } else {
+          finishQuiz();
+        }
+      }, delayMs);
     }
 
     function quizTileButton(tile, where) {
@@ -837,17 +937,8 @@
       if (right) quizScore += 1;
       renderQuizTiles();
       quizChoices.querySelector(".quiz-build").classList.add(right ? "correct" : "wrong");
-      // On a miss, show the real sentence and hold long enough to read it.
       if (!right) quizStatus.textContent = item.correct;
-      setTimeout(() => {
-        quizStatus.textContent = "";
-        if (quizIdx < quizItems.length - 1) {
-          quizIdx += 1;
-          renderQuizQuestion();
-        } else {
-          finishQuiz();
-        }
-      }, right ? 700 : 2400);
+      nextQuizQuestion(right ? 700 : 2400);
     }
 
     function finishQuiz() {
@@ -944,14 +1035,139 @@
       history.back();
     });
 
+    // Reci: speak first, then hear it. The English line is shown, you say the
+    // Croatian into the silence, the clip confirms it, and you rate yourself.
+    // A miss goes to the back of the queue; the session ends when every line
+    // is Znam. Nothing is stored - it is a drill, not a schedule.
+    const reciScreen = document.getElementById("reciScreen");
+    const reciLabel = document.getElementById("reciLabel");
+    const reciEn = document.getElementById("reciEn");
+    const reciHr = document.getElementById("reciHr");
+    const reciActions = document.getElementById("reciActions");
+    const reciProgress = document.getElementById("reciProgress");
+    // Its own element, so the story player's "ended" auto-advance never fires
+    // underneath a drill.
+    const reciAudio = new Audio();
+    reciAudio.preload = "auto";
+    let reciStory = null;
+    let reciQueue = [];
+    let reciDone = 0;
+    let reciTimer = null;
+    let reciToken = 0; // bumped per line, so a late timer or metadata event from the previous line is ignored
+    let reciRevealed = false;
+
+    function reciButton(label, className, onClick) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = className;
+      btn.textContent = label;
+      btn.addEventListener("click", onClick);
+      reciActions.appendChild(btn);
+      return btn;
+    }
+
+    function stopReci() {
+      clearTimeout(reciTimer);
+      reciToken += 1;
+      reciAudio.pause();
+    }
+
+    function startReci(id) {
+      reciStory = displayedStories().find((s) => s.id === id);
+      if (!reciStory) {
+        showHome();
+        return;
+      }
+      showScreen(reciScreen);
+      // iOS only lets this element play later, from a timer, if it has already
+      // been started inside a tap - so start and immediately stop it here.
+      reciAudio.src = reciStory.lines[0].audio;
+      const unlock = reciAudio.play();
+      if (unlock && unlock.catch) unlock.catch(() => {});
+      reciAudio.pause();
+      reciQueue = shuffle(reciStory.lines);
+      reciDone = 0;
+      nextReci();
+    }
+
+    function nextReci() {
+      stopReci();
+      const total = reciStory.lines.length;
+      reciProgress.textContent = `${reciDone} / ${total}`;
+      reciActions.innerHTML = "";
+      reciHr.hidden = true;
+
+      if (!reciQueue.length) {
+        reciLabel.textContent = "Gotovo";
+        reciEn.textContent = "Sve rečenice znaš.";
+        reciButton("Opet", "quiz-check", () => startReci(reciStory.id));
+        return;
+      }
+
+      const line = reciQueue[0];
+      const token = reciToken;
+      reciRevealed = false;
+      reciLabel.textContent = "Reci na hrvatskom";
+      reciEn.textContent = line.en;
+      reciHr.textContent = line.hr;
+      reciButton("Pokaži", "quiz-check", () => revealReci(token));
+
+      // The silence to answer in is twice the clip - the same room the story
+      // player gives - with a fallback in case the clip never loads.
+      reciAudio.src = line.audio;
+      reciTimer = setTimeout(() => revealReci(token), 5000);
+      reciAudio.addEventListener("loadedmetadata", () => {
+        if (token !== reciToken || reciRevealed || !reciAudio.duration) return;
+        clearTimeout(reciTimer);
+        reciTimer = setTimeout(() => revealReci(token), reciAudio.duration * PHRASE_PAUSE_MULT * 1000);
+      }, { once: true });
+    }
+
+    function revealReci(token) {
+      if (token !== reciToken || reciRevealed) return;
+      reciRevealed = true;
+      clearTimeout(reciTimer);
+      reciHr.hidden = false;
+      reciAudio.currentTime = 0;
+      const p = reciAudio.play();
+      if (p && p.catch) p.catch(() => {});
+      reciActions.innerHTML = "";
+      reciButton("🔁", "quiz-check reci-no", () => {
+        reciAudio.currentTime = 0;
+        const again = reciAudio.play();
+        if (again && again.catch) again.catch(() => {});
+      });
+      reciButton("Ne znam", "quiz-check reci-no", () => {
+        reciQueue.push(reciQueue.shift());
+        nextReci();
+      });
+      reciButton("Znam", "quiz-check", () => {
+        reciQueue.shift();
+        reciDone += 1;
+        nextReci();
+      });
+    }
+
+    document.getElementById("reciBtn").addEventListener("click", () => {
+      history.pushState({ reci: story.id }, "", `index.html?reci=${story.id}`);
+      startReci(story.id);
+    });
+    document.getElementById("reciBackLink").addEventListener("click", (e) => {
+      e.preventDefault();
+      history.back();
+    });
+
     function syncFromUrl() {
       const params = new URLSearchParams(location.search);
       const storyId = params.get("story");
       const songId = params.get("song");
       const bookId = params.get("book");
       const quizId = params.get("quiz");
+      const reciId = params.get("reci");
       if (storyId && displayedStories().some((s) => s.id === storyId)) {
         selectStory(storyId);
+      } else if (reciId && displayedStories().some((s) => s.id === reciId)) {
+        startReci(reciId);
       } else if (quizId && displayedStories().some((s) => s.id === quizId)) {
         startQuiz(quizId);
       } else if (songId && SONGS.some((s) => s.id === songId)) {

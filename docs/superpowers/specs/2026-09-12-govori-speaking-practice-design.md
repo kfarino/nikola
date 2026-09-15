@@ -1,5 +1,7 @@
 # Govori — speaking-first practice
 
+> **Parked 2026-09-14** — revisit once daily use is steady. Work so far is on the unmerged `govori-speaking-practice` branch; Wiktionary glossed only 18% of words, see that branch's history.
+
 **Date:** 2026-09-12
 **Status:** design, awaiting review
 
